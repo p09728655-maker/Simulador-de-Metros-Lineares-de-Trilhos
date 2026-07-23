@@ -216,6 +216,14 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 
     <div class="kpis" id="kpis"></div>
 
+    <!-- Por unidade -->
+    <section id="sec-unid">
+      <h2>Por unidade <span class="tag">MDP → Un. I · MDF → Un. II</span></h2>
+      <div class="sec-sub">Separa a necessidade de trilho deste lote por unidade de corte (pelo material de cada peça).
+        Ajuste o material de cada unidade em <b>⚙ Cadastros</b>, ou troque a unidade de uma peça na coluna <b>Unidade</b> da tabela.</div>
+      <div class="tbl-wrap"><table id="tbl-unid"></table></div>
+    </section>
+
     <!-- Simulador -->
     <section id="sec-sim">
       <h2>Simulação do lote <span class="tag" id="sim-tag"></span></h2>
@@ -306,7 +314,7 @@ const DEFAULT_TABUAS = [
   {id:"t4", comp:1850, larg:380, material:"MDP", esp:null},
 ];
 const DEFAULT_PARAMS = { alturaPilha:1200, unidades:[
-  {nome:"UNIDADE I", metros:116}, {nome:"UNIDADE II", metros:40}
+  {nome:"UNIDADE I", metros:116, material:"MDP"}, {nome:"UNIDADE II", metros:40, material:"MDF"}
 ]};
 
 function load(key, fallback){ try{ const v=JSON.parse(localStorage.getItem(key)); return v==null?fallback:v; }catch(e){ return fallback; } }
@@ -314,6 +322,9 @@ function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
 
 let TABUAS = load(LS_TABUAS, null); if(!TABUAS){ TABUAS=DEFAULT_TABUAS.slice(); save(LS_TABUAS,TABUAS); }
 let PARAMS = load(LS_PARAMS, null); if(!PARAMS){ PARAMS=JSON.parse(JSON.stringify(DEFAULT_PARAMS)); save(LS_PARAMS,PARAMS); }
+// migração: garante o "material que corta" em cada unidade (Un I=MDP, Un II=MDF, demais=Todos)
+(PARAMS.unidades||[]).forEach((u,i)=>{ if(u.material==null) u.material = i===0?"MDP":(i===1?"MDF":"Todos"); });
+save(LS_PARAMS,PARAMS);
 let LOTES  = load(LS_LOTES, {});      // { loteKey: {lote, importedAt, rows:[...]} }
 let CUR = null;                        // loteKey ativo
 
@@ -401,6 +412,25 @@ function loteTotals(key){
   for(const r of lt.rows){ const c=calcRow(r); qty+=r.qty; N+=c.N; O+=c.O; }
   return {qty,N,O};
 }
+// resolve o índice da unidade de uma peça: override manual > material da peça > "Todos" > primeira
+function resolveUnidadeIdx(row){
+  const U=PARAMS.unidades||[]; if(!U.length) return -1;
+  if(row.unidade!=null && U[row.unidade]) return row.unidade;
+  const mat=String(row.material||"").toUpperCase();
+  let i=U.findIndex(u=>String(u.material||"").toUpperCase()===mat);
+  if(i<0) i=U.findIndex(u=>{const m=String(u.material||"").toUpperCase(); return m==="TODOS"||m==="";});
+  return i<0?0:i;
+}
+// totais por unidade (um lote, ou todos se key==null). Array alinhado a PARAMS.unidades.
+function unidadeTotals(key){
+  const U=PARAMS.unidades||[];
+  const out=U.map(u=>({nome:u.nome, material:u.material, metros:+u.metros||0, qty:0, N:0, O:0}));
+  const keys = key==null ? Object.keys(LOTES) : [key];
+  for(const k of keys){ const lt=LOTES[k]; if(!lt) continue;
+    for(const r of lt.rows){ const c=calcRow(r); const idx=resolveUnidadeIdx(r); if(out[idx]){ out[idx].qty+=r.qty; out[idx].N+=c.N; out[idx].O+=c.O; } }
+  }
+  return out;
+}
 
 /* ================= render ================= */
 function renderParams(){
@@ -408,13 +438,20 @@ function renderParams(){
   const wrap=document.getElementById("unidades-wrap"); wrap.innerHTML="";
   (PARAMS.unidades||[]).forEach((u,i)=>{
     const d=document.createElement("div"); d.className="fld";
-    d.innerHTML=`<label>${esc(u.nome)} (m) <span class="iconbtn" data-rm="${i}" title="remover" style="color:var(--txt3)">✕</span></label>
-      <input type="number" min="0" step="1" data-unid="${i}" value="${u.metros}">`;
+    const opt=m=>`<option ${String(u.material||"")===m?"selected":""}>${m}</option>`;
+    d.innerHTML=`<label>${esc(u.nome)} · metros · material <span class="iconbtn" data-rm="${i}" title="remover" style="color:var(--txt3)">✕</span></label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" min="0" step="1" data-unid="${i}" value="${u.metros}" title="trilho disponível (m)" style="width:80px">
+        <select class="cell-sel" data-unidmat="${i}" title="material que esta unidade corta">${opt("MDP")}${opt("MDF")}${opt("Todos")}</select>
+      </div>`;
     wrap.appendChild(d);
   });
   document.getElementById("p-total").value = fmt(totalDisponivel())+" m";
   wrap.querySelectorAll("input[data-unid]").forEach(inp=>inp.addEventListener("change",e=>{
     PARAMS.unidades[+e.target.dataset.unid].metros=+e.target.value||0; save(LS_PARAMS,PARAMS); renderParams(); renderAll();
+  }));
+  wrap.querySelectorAll("select[data-unidmat]").forEach(sel=>sel.addEventListener("change",e=>{
+    PARAMS.unidades[+e.target.dataset.unidmat].material=e.target.value; save(LS_PARAMS,PARAMS); renderParams(); renderAll();
   }));
   wrap.querySelectorAll("[data-rm]").forEach(b=>b.addEventListener("click",e=>{
     PARAMS.unidades.splice(+e.target.dataset.rm,1); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
@@ -461,13 +498,16 @@ function tabuaOptions(sel){
   const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
   return ord.map(t=>`<option value="${t.comp}|${t.larg}" ${sel&&sel.c===t.comp&&sel.l===t.larg?"selected":""}>${t.comp}×${t.larg} ${esc(t.material||"")}</option>`).join("");
 }
+function unidadeOptions(selIdx){
+  return (PARAMS.unidades||[]).map((u,i)=>`<option value="${i}" ${i===selIdx?"selected":""}>${esc(u.nome)}</option>`).join("");
+}
 function renderSim(){
   const lt=LOTES[CUR]; const t=document.getElementById("tbl-sim");
   document.getElementById("sim-tag").textContent = lt? (lt.lote+" · "+lt.rows.length+" peças") : "";
   if(!lt){ t.innerHTML=""; return; }
   let h="<thead><tr>"
     +"<th class='l'>Peça (código · descrição)</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>"
-    +"<th>Sug. tábua</th><th class='l'>Tábua</th><th>I</th><th>J</th><th>K</th>"
+    +"<th>Sug. tábua</th><th class='l'>Tábua</th><th class='l'>Unidade</th><th>Qtde comp<br>lastro (I)</th><th>Qtde larg<br>lastro (J)</th><th>Total<br>(K)</th>"
     +"<th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead><tbody>";
   let sQ=0,sN=0,sO=0;
   lt.rows.forEach((r,idx)=>{
@@ -481,6 +521,7 @@ function renderSim(){
       <td class='num ${dimOk?"":"zero"}'>${r.alt??"—"}</td>
       <td class='calc'>${c.sug}</td>
       <td class='l'><select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
+      <td class='l'><select class='cell-sel' data-unid-in='${idx}' title='${esc(r.material||"")}'>${unidadeOptions(resolveUnidadeIdx(r))}</select></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-j-in='${idx}' value='${c.J}'></td>
       <td class='calc'>${fmt(c.K)}</td>
@@ -488,7 +529,7 @@ function renderSim(){
       <td class='calc'>${fmtInt(c.N)}</td>
       <td class='num'>${fmt(c.O)}</td></tr>`;
   });
-  h+=`<tr class='trtot'><td class='l'>Total</td><td>${fmtInt(sQ)}</td><td colspan='8'></td>`
+  h+=`<tr class='trtot'><td class='l'>Total</td><td>${fmtInt(sQ)}</td><td colspan='10'></td>`
     +`<td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>`;
   h+="</tbody>"; t.innerHTML=h;
 
@@ -496,13 +537,16 @@ function renderSim(){
     const i=+e.target.dataset.tabua; const [c,l]=e.target.value.split("|").map(Number);
     LOTES[CUR].rows[i].tabuaComp=c; LOTES[CUR].rows[i].tabuaLarg=l;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // nova tábua → nova sugestão de encaixe
-    persistLotes(); renderSim(); renderKpis(); renderGeral();
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+  }));
+  t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
+    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
   }));
   t.querySelectorAll("input[data-i-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
   }));
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
   }));
 }
 function renderGeral(){
@@ -527,7 +571,27 @@ function renderGeral(){
   else h+=`<tr class='trtot'><td class='l'>Total (${keys.length} lote(s))</td><td>${fmtInt(gQ)}</td><td>${fmtInt(gN)}</td><td>${fmt(gO)}</td><td colspan='3'></td></tr>`;
   h+="</tbody>"; t.innerHTML=h;
 }
-function renderAll(){ renderKpis(); renderSim(); renderGeral(); }
+function renderUnid(){
+  const t=document.getElementById("tbl-unid"); if(!t) return;
+  const U=unidadeTotals(CUR);
+  let h="<thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>";
+  for(const u of U){
+    const pct=u.metros>0?u.O/u.metros:0;
+    const cls=pct>1?"b-red":(pct>0.85?"b-warn":"b-ok");
+    const st=u.metros<=0?"—":(pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK"));
+    h+=`<tr>
+      <td class='l mono'>${esc(u.nome)}</td>
+      <td class='l'>${esc(u.material||"—")}</td>
+      <td class='num'>${fmtInt(u.qty)}</td>
+      <td class='num'>${fmtInt(u.N)}</td>
+      <td class='num'>${fmt(u.O)}</td>
+      <td class='num'>${fmt(u.metros)}</td>
+      <td class='num'>${u.metros>0?fmt(pct*100)+"%":"—"}</td>
+      <td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
+  }
+  h+="</tbody>"; t.innerHTML=h;
+}
+function renderAll(){ renderKpis(); renderUnid(); renderSim(); renderGeral(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -563,15 +627,20 @@ function exportXlsx(){
     aoa.push(["SIMULAÇÃO CONSUMO EM METROS TRILHOS CORTE", "", "", "", "LOTE", lt.lote]);
     aoa.push(["Altura pilha:", PARAMS.alturaPilha, "", "Trilho disponível (m):", totalDisponivel()]);
     aoa.push([]);
-    aoa.push(["CÓDIGO","DESCRIÇÃO","QTDE","COMP","LARG","ALT","SUG.TÁBUA","TÁBUA COMP","TÁBUA LARG","I","J","K","PÇ/PILHA (M)","PILHAS (N)","METROS (O)"]);
+    aoa.push(["CÓDIGO","DESCRIÇÃO","QTDE","COMP","LARG","ALT","SUG.TÁBUA","TÁBUA COMP","TÁBUA LARG","UNIDADE","QTDE COMP (LASTRO)","QTDE LARG (LASTRO)","TOTAL (K)","PÇ/PILHA (M)","PILHAS (N)","METROS (O)"]);
     let sQ=0,sN=0,sO=0;
     for(const r of lt.rows){
       const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
-      aoa.push([r.cod,r.desc,r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.I,c.J,c.K,c.M,c.N,Math.round(c.O*100)/100]);
+      const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"";
+      aoa.push([r.cod,r.desc,r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,uNome,c.I,c.J,c.K,c.M,c.N,Math.round(c.O*100)/100]);
     }
     const disp=totalDisponivel();
-    aoa.push(["","TOTAL",sQ,"","","","","","","","","",_r2(sN),_r2(sN),Math.round(sO*100)/100]);
+    const totRow=["","TOTAL",sQ]; for(let z=0;z<11;z++) totRow.push(""); totRow.push(_r2(sN), Math.round(sO*100)/100);
+    aoa.push(totRow);
     aoa.push(["","OCUPAÇÃO",(disp>0?Math.round(sO/disp*10000)/100:0)+"%"]);
+    aoa.push([]);
+    aoa.push(["POR UNIDADE","Material","Peças","Pilhas","Necessidade (m)","Disponível (m)","Ocupação %"]);
+    for(const u of unidadeTotals(key)){ aoa.push([u.nome,u.material,u.qty,Math.round(u.N),Math.round(u.O*100)/100,u.metros,u.metros>0?Math.round(u.O/u.metros*10000)/100:0]); }
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     let nm=String(lt.lote).replace(/[\[\]\*\/\\\?:]/g," ").trim().slice(0,31)||"Lote";
     let base=nm,i=2; while(usados.has(nm)){ nm=(base.slice(0,27)+" "+i).slice(0,31); i++; } usados.add(nm);
@@ -583,6 +652,9 @@ function exportXlsx(){
   const disp=totalDisponivel();
   const g=[["GERAL"],["Lote","Peças","Pilhas","Necessidade (m)","Disponível (m)","Ocupação %"]];
   for(const k of keys){ const T=loteTotals(k); g.push([LOTES[k].lote,T.qty,Math.round(T.N),Math.round(T.O*100)/100,disp,disp>0?Math.round(T.O/disp*10000)/100:0]); }
+  g.push([]); g.push(["POR UNIDADE (todos os lotes)"]);
+  g.push(["Unidade","Material","Peças","Pilhas","Necessidade (m)","Disponível (m)","Ocupação %"]);
+  for(const u of unidadeTotals(null)){ g.push([u.nome,u.material,u.qty,Math.round(u.N),Math.round(u.O*100)/100,u.metros,u.metros>0?Math.round(u.O/u.metros*10000)/100:0]); }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(g), "GERAL");
   for(const k of keys) addLoteSheet(k);
   XLSX.writeFile(wb, "simulador_trilhos.xlsx");
@@ -673,6 +745,13 @@ function renderConsolidado(){
         <tr class="rep-tot"><td class='l'>Total (${keys.length} lote(s))</td><td>${fmtInt(gQ)}</td><td>${fmtInt(gN)}</td><td>${fmt(gO)}</td><td>—</td><td>—</td><td></td></tr>
       </tbody>
     </table>
+    ${(()=>{ const U=unidadeTotals(null); if(!U.length) return "";
+      let ur=""; for(const u of U){ const pct=u.metros>0?u.O/u.metros:0; const cls=pct>1?"r-red":(pct>0.85?"r-warn":"r-ok");
+        const st=u.metros<=0?"—":(pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK"));
+        ur+=`<tr><td class='l'>${esc(u.nome)}</td><td class='l'>${esc(u.material||"—")}</td><td>${fmtInt(u.qty)}</td><td>${fmtInt(u.N)}</td><td>${fmt(u.O)}</td><td>${fmt(u.metros)}</td><td>${u.metros>0?fmt(pct*100)+"%":"—"}</td><td class='l'><span class='rep-badge ${cls}'>${st}</span></td></tr>`; }
+      return `<div style="font-family:var(--font-h);font-weight:700;font-size:14px;margin:18px 0 6px;color:#111">Por unidade de corte</div>
+      <table class="rep-tbl"><thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>${ur}</tbody></table>`;
+    })()}
     <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador · "Disponível" é a capacidade de trilho por rodada</div>`;
 }
 document.getElementById("btn-consol").addEventListener("click",()=>{
