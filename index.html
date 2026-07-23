@@ -156,6 +156,16 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 #report-consolidado .rep-badge{font-family:var(--font-d);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid currentColor}
 #report-consolidado .r-ok{color:#2e7d32} #report-consolidado .r-warn{color:#e65100} #report-consolidado .r-red{color:#c62828}
 #report-consolidado .rep-foot{margin-top:18px;font-family:var(--font-d);font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;text-align:center}
+#report-consolidado .rep-ctitle{font-family:var(--font-h);font-weight:700;font-size:14px;margin:16px 0 6px;color:#111}
+#report-consolidado .rep-chart{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+#report-consolidado .rep-crow{display:grid;grid-template-columns:120px 1fr 155px;gap:10px;align-items:center;font-family:var(--font-d);font-size:10px;color:#333}
+#report-consolidado .rep-ctrack{position:relative;background:#eee;border:1px solid #ccc;border-radius:4px;height:16px;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#report-consolidado .rep-cfill{height:100%;background:#999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#report-consolidado .rep-cfill.r-ok{background:#2e7d32}
+#report-consolidado .rep-cfill.r-warn{background:#e65100}
+#report-consolidado .rep-cfill.r-red{background:#c62828}
+#report-consolidado .rep-cref{position:absolute;top:-1px;bottom:-1px;border-left:1.5px dashed #555}
+#report-consolidado .rep-cval{text-align:right;white-space:nowrap}
 
 @media print{
   @page{ size:A4 landscape; margin:11mm; }
@@ -164,7 +174,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   main{max-width:100% !important;padding:0 !important}
   .print-only{display:block}
   /* modo relatório consolidado: imprime só o relatório */
-  body.printing-cons #view-sim, body.printing-cons #view-cad{display:none !important}
+  body.printing-cons #view-sim, body.printing-cons #view-cad, body.printing-cons #view-cons{display:none !important}
   body.printing-cons #report-consolidado{display:block !important}
   h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
   .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
@@ -695,11 +705,16 @@ function renderGeralUnid(){
   const t=document.getElementById("tbl-geral-unid"); if(!t) return;
   const U=unidadeTotals(null);
   let h="<thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>";
-  for(const u of U){ const pct=u.metros>0?u.O/u.metros:0; const cls=pct>1?"b-red":(pct>0.85?"b-warn":"b-ok");
+  U.forEach((u,i)=>{ const pct=u.metros>0?u.O/u.metros:0; const cls=pct>1?"b-red":(pct>0.85?"b-warn":"b-ok");
     const st=u.metros<=0?"—":(pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK"));
-    h+=`<tr><td class='l mono'>${esc(u.nome)}</td><td class='l'>${esc(u.material||"—")}</td><td class='num'>${fmtInt(u.qty)}</td><td class='num'>${fmtInt(u.N)}</td><td class='num'>${fmt(u.O)}</td><td class='num'>${fmt(u.metros)}</td><td class='num'>${u.metros>0?fmt(pct*100)+"%":"—"}</td><td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
-  }
+    h+=`<tr><td class='l mono'>${esc(u.nome)}</td><td class='l'>${esc(u.material||"—")}</td><td class='num'>${fmtInt(u.qty)}</td><td class='num'>${fmtInt(u.N)}</td><td class='num'>${fmt(u.O)}</td>`
+      +`<td><input class='cell-in' type='number' min='0' step='1' data-unidmetros='${i}' value='${u.metros}' title='trilho disponível desta unidade (m)'></td>`
+      +`<td class='num'>${u.metros>0?fmt(pct*100)+"%":"—"}</td><td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
+  });
   h+="</tbody>"; t.innerHTML=h;
+  t.querySelectorAll("input[data-unidmetros]").forEach(inp=>inp.addEventListener("change",e=>{
+    const i=+e.target.dataset.unidmetros; if(PARAMS.unidades[i]){ PARAMS.unidades[i].metros=+e.target.value||0; save(LS_PARAMS,PARAMS); renderParams(); renderKpis(); renderUnid(); renderConsView(); }
+  }));
 }
 function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
 
@@ -828,6 +843,18 @@ document.getElementById("btn-add-tabua").addEventListener("click",()=>{
 
 // export / pdf
 /* ================= relatório consolidado (todos os lotes) ================= */
+// barra horizontal para o relatório impresso (cores que imprimem via print-color-adjust)
+function repBarChart(items, ref){
+  ref=ref||100; const maxPct=Math.max(ref*1.1, ...items.map(i=>i.pct||0), 1);
+  let h='<div class="rep-chart">';
+  for(const it of items){
+    const w=Math.max(0,Math.min(100,(it.pct/maxPct)*100)); const refLeft=(ref/maxPct)*100;
+    h+=`<div class="rep-crow"><div class="rep-clbl">${esc(it.label)}</div>`
+      +`<div class="rep-ctrack"><div class="rep-cfill ${it.cls}" style="width:${w}%"></div><div class="rep-cref" style="left:${refLeft}%"></div></div>`
+      +`<div class="rep-cval">${esc(it.value)}</div></div>`;
+  }
+  return h+'</div>';
+}
 function renderConsolidado(){
   const el=document.getElementById("report-consolidado");
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
@@ -860,6 +887,12 @@ function renderConsolidado(){
       <div><span>Necessidade total</span><b>${fmt(gO)} m</b></div>
       <div><span>Trilho disponível</span><b>${fmt(disp)} m</b></div>
     </div>
+    ${(()=>{ const ks=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b)); const d=totalDisponivel();
+      const items=ks.map(k=>{const T=loteTotals(k);const pct=d>0?T.O/d*100:0;const cls=pct>100?"r-red":(pct>85?"r-warn":"r-ok");return {label:LOTES[k].lote,pct,cls,value:fmt(T.O)+" m · "+fmt(pct)+"%"};});
+      return '<div class="rep-ctitle">Ocupação por lote</div>'+repBarChart(items,100); })()}
+    ${(()=>{ const U=unidadeTotals(null); if(!U.length) return "";
+      const items=U.map(u=>{const pct=u.metros>0?u.O/u.metros*100:0;const cls=pct>100?"r-red":(pct>85?"r-warn":"r-ok");return {label:u.nome+" ("+(u.material||"—")+")",pct,cls,value:fmt(u.O)+" / "+fmt(u.metros)+" m · "+(u.metros>0?fmt(pct)+"%":"—")};});
+      return '<div class="rep-ctitle">Ocupação por unidade</div>'+repBarChart(items,100); })()}
     <table class="rep-tbl">
       <thead><tr><th class='l'>Lote</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead>
       <tbody>${rows}
