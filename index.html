@@ -355,12 +355,16 @@ const RE_DIM  = /(\d+)\s*[Xx]\s*(\d+)\s*[Xx]\s*(\d+)/;
 
 async function parsePdf(arrayBuffer){
   const doc = await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
-  let lote=null; const items=[];
+  let curLote=null; const items=[];
   for(let p=1;p<=doc.numPages;p++){
     const page=await doc.getPage(p);
     const tc=await page.getTextContent();
     for(const ln of itemsToLines(tc.items)){
-      if(!lote){ const m=ln.match(RE_LOTE); if(m) lote="LT "+(+m[1])+"/"+m[2]; }
+      // cabeçalho do lote — troca o lote vigente sempre que muda (PDF pode ter vários lotes).
+      // usa a linha "sem espaços" porque o cabeçalho vem espaçado (ex.: "L T 1 3 8 / 2 6").
+      const despaced=ln.replace(/\s+/g,"");
+      const ml=despaced.match(/LT(\d+)\/(\d+)/i);
+      if(ml && !/UN\d{3}\.\d{3}\.\d{3}/.test(despaced)){ curLote="LT "+(+ml[1])+"/"+ml[2]; }
       if(/Total do (Sub )?Grupo/i.test(ln)) continue;
       const m=ln.match(RE_ITEM);
       if(m){
@@ -368,22 +372,27 @@ async function parsePdf(arrayBuffer){
         const cod=m[2]; const desc=m[3].trim().replace(/\s+MDP\s+MDP/i," MDP"); const of=m[4];
         const d=desc.match(RE_DIM);
         const mat=(desc.match(/\bMD[PF]\b/i)||["MDP"])[0].toUpperCase();
-        items.push({qty,cod,desc,of, comp:d?+d[1]:null, larg:d?+d[2]:null, alt:d?+d[3]:null, material:mat});
+        items.push({lote:curLote||"(sem lote)", qty,cod,desc,of, comp:d?+d[1]:null, larg:d?+d[2]:null, alt:d?+d[3]:null, material:mat});
       }
     }
   }
-  // agrega por código (soma quantidades das OFs)
-  const agg={};
+  // agrupa por LOTE e, dentro de cada lote, agrega por código (soma as OFs)
+  const porLote={};
   for(const it of items){
-    const a=agg[it.cod] || (agg[it.cod]={cod:it.cod, desc:it.desc, comp:it.comp, larg:it.larg, alt:it.alt,
-                                          material:it.material, qty:0, ofs:[]});
+    const L = porLote[it.lote] || (porLote[it.lote]={agg:{}, count:0});
+    L.count++;
+    const a=L.agg[it.cod] || (L.agg[it.cod]={cod:it.cod, desc:it.desc, comp:it.comp, larg:it.larg, alt:it.alt,
+                                             material:it.material, qty:0, ofs:[]});
     a.qty+=it.qty; if(a.ofs.indexOf(it.of)<0) a.ofs.push(it.of);
   }
-  const rows=Object.values(agg).map(a=>({
-    cod:a.cod, desc:a.desc, comp:a.comp, larg:a.larg, alt:a.alt, material:a.material, qty:a.qty, ofs:a.ofs,
-    tabuaComp:null, tabuaLarg:null, I:null, J:null   // null = usar sugestão
+  const lotes=Object.keys(porLote).map(lote=>({
+    lote, count:porLote[lote].count,
+    rows:Object.values(porLote[lote].agg).map(a=>({
+      cod:a.cod, desc:a.desc, comp:a.comp, larg:a.larg, alt:a.alt, material:a.material, qty:a.qty, ofs:a.ofs,
+      tabuaComp:null, tabuaLarg:null, I:null, J:null
+    }))
   }));
-  return {lote, rows, count:items.length};
+  return {lotes, count:items.length};
 }
 
 /* ================= cálculo (espelha o Excel) ================= */
@@ -397,8 +406,8 @@ function sugTabua(row){
 function calcRow(row){
   let tComp=row.tabuaComp, tLarg=row.tabuaLarg;
   if(tComp==null){ const s=sugTabua(row); tComp=s?s.comp:0; tLarg=s?s.larg:0; }
-  const I = row.I!=null ? row.I : Math.max(1, Math.floor((tComp||0)/(row.comp||1)) || 1);
-  const J = row.J!=null ? row.J : Math.max(1, Math.floor((tLarg||0)/(row.larg||1)) || 1);
+  const I = row.I!=null ? row.I : (row.comp ? Math.max(1, Math.floor((tComp||0)/row.comp) || 1) : 1);
+  const J = row.J!=null ? row.J : (row.larg ? Math.max(1, Math.floor((tLarg||0)/row.larg) || 1) : 1);
   const K = I*J;
   const M = row.alt>0 ? Math.floor(PARAMS.alturaPilha/row.alt * K) : 0;
   const N = M>0 ? Math.ceil(row.qty/M) : 0;
@@ -514,7 +523,7 @@ function renderSim(){
     const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
     const dimOk = r.comp&&r.larg&&r.alt;
     h+=`<tr data-i='${idx}'>
-      <td class='l'><span class='mono desc-cod'>${esc(r.cod)}</span><span class='desc-txt'>${esc(r.desc)}</span>${r.ofs&&r.ofs.length>1?` <span style='color:var(--txt3);font-size:10px'>(${r.ofs.length} OFs)</span>`:""}</td>
+      <td class='l'><button class='iconbtn del-row' data-del-row='${idx}' title='Excluir esta peça da simulação'>🗑</button> <span class='mono desc-cod'>${esc(r.cod)}</span><span class='desc-txt'>${esc(r.desc)}</span>${r.ofs&&r.ofs.length>1?` <span style='color:var(--txt3);font-size:10px'>(${r.ofs.length} OFs)</span>`:""}${!dimOk?` <span class='badge b-warn' style='padding:1px 6px'>sem medida</span>`:""}</td>
       <td class='num'>${fmtInt(r.qty)}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.comp??"—"}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.larg??"—"}</td>
@@ -538,6 +547,11 @@ function renderSim(){
     LOTES[CUR].rows[i].tabuaComp=c; LOTES[CUR].rows[i].tabuaLarg=l;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // nova tábua → nova sugestão de encaixe
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+  }));
+  t.querySelectorAll("button[data-del-row]").forEach(b=>b.addEventListener("click",e=>{
+    const i=+e.currentTarget.dataset.delRow; const r=LOTES[CUR].rows[i];
+    if(!confirm("Excluir a peça "+(r?r.cod+" — "+r.desc:"")+" da simulação?\n(some deste lote; reimportar o PDF traz de volta)")) return;
+    LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
   }));
   t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
@@ -607,13 +621,21 @@ async function handlePdf(file){
   clearErr();
   try{
     const buf=await file.arrayBuffer();
-    const {lote,rows,count}=await parsePdf(buf);
-    if(!rows.length){ showErr("Não encontrei peças neste PDF. Confira se é o relatório “OFs Relacionadas ao Lote”."); return; }
-    const key = lote || file.name;
-    LOTES[key] = { lote: lote||file.name, importedAt: new Date().toISOString(), rows };
-    persistLotes(); CUR=key;
+    const {lotes,count}=await parsePdf(buf);
+    const validos=lotes.filter(l=>l.rows.length);
+    if(!validos.length){ showErr("Não encontrei peças neste PDF. Confira se é o relatório “OFs Relacionadas ao Lote”."); return; }
+    let firstKey=null;
+    for(const l of validos){
+      const key=l.lote||file.name;
+      LOTES[key]={ lote:l.lote||file.name, importedAt:new Date().toISOString(), rows:l.rows };
+      if(!firstKey) firstKey=key;
+    }
+    persistLotes(); CUR=firstKey;
     document.getElementById("fname").textContent=file.name;
-    document.getElementById("lote-pill").textContent=(lote||"—")+" · "+rows.length+" peças ("+count+" linhas)";
+    const nomes=validos.map(l=>l.lote).join(", ");
+    document.getElementById("lote-pill").textContent = validos.length>1
+      ? (validos.length+" lotes: "+nomes)
+      : (validos[0].lote+" · "+validos[0].rows.length+" peças ("+count+" linhas)");
     showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll(); setView("sim");
   }catch(err){ showErr("Erro ao ler o PDF: "+err.message); }
 }
