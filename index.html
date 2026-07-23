@@ -378,7 +378,7 @@ const DEFAULT_TABUAS = [
   {id:"t3", comp:1600, larg:380, material:"MDP", esp:null},
   {id:"t4", comp:1850, larg:380, material:"MDP", esp:null},
 ];
-const DEFAULT_PARAMS = { alturaPilha:1200, folga:100, unidades:[
+const DEFAULT_PARAMS = { alturaPilha:1350, folga:100, unidades:[
   {nome:"UNIDADE I", metros:116, material:"MDP"}, {nome:"UNIDADE II", metros:40, material:"MDF"}
 ]};
 
@@ -480,7 +480,7 @@ function sugTabua(row){
 // altura da pilha para uma espessura (cadastro por espessura; fallback = altura padrão)
 function alturaParaEsp(esp){
   const hit=(PARAMS.alturasPorEsp||[]).find(a=>+a.esp===+esp);
-  return hit? (+hit.altura||0) : (PARAMS.alturaPilha||1200);
+  return hit? (+hit.altura||0) : (PARAMS.alturaPilha||1350);
 }
 // nº de camadas na pilha = altura ÷ espessura, arredondado ao múltiplo de 10 mais próximo (50,60,70,80,90…)
 function camadasFor(esp){
