@@ -385,14 +385,18 @@ async function parsePdf(arrayBuffer){
                                              material:it.material, qty:0, ofs:[]});
     a.qty+=it.qty; if(a.ofs.indexOf(it.of)<0) a.ofs.push(it.of);
   }
-  const lotes=Object.keys(porLote).map(lote=>({
-    lote, count:porLote[lote].count,
-    rows:Object.values(porLote[lote].agg).map(a=>({
+  let excluidas=0;
+  const lotes=Object.keys(porLote).map(lote=>{
+    const todas=Object.values(porLote[lote].agg).map(a=>({
       cod:a.cod, desc:a.desc, comp:a.comp, larg:a.larg, alt:a.alt, material:a.material, qty:a.qty, ofs:a.ofs,
       tabuaComp:null, tabuaLarg:null, I:null, J:null
-    }))
-  }));
-  return {lotes, count:items.length};
+    }));
+    // peças sem medida (ex.: "CANTO CURVO") não entram na simulação
+    const rows=todas.filter(r=>r.comp&&r.larg&&r.alt);
+    excluidas += (todas.length-rows.length);
+    return { lote, count:porLote[lote].count, rows };
+  });
+  return {lotes, count:items.length, excluidas};
 }
 
 /* ================= cálculo (espelha o Excel) ================= */
@@ -621,9 +625,9 @@ async function handlePdf(file){
   clearErr();
   try{
     const buf=await file.arrayBuffer();
-    const {lotes,count}=await parsePdf(buf);
+    const {lotes,count,excluidas}=await parsePdf(buf);
     const validos=lotes.filter(l=>l.rows.length);
-    if(!validos.length){ showErr("Não encontrei peças neste PDF. Confira se é o relatório “OFs Relacionadas ao Lote”."); return; }
+    if(!validos.length){ showErr("Não encontrei peças com medidas neste PDF. Confira se é o relatório “OFs Relacionadas ao Lote”."); return; }
     let firstKey=null;
     for(const l of validos){
       const key=l.lote||file.name;
@@ -633,9 +637,10 @@ async function handlePdf(file){
     persistLotes(); CUR=firstKey;
     document.getElementById("fname").textContent=file.name;
     const nomes=validos.map(l=>l.lote).join(", ");
-    document.getElementById("lote-pill").textContent = validos.length>1
+    const semMedida = excluidas>0 ? ` · ${excluidas} sem medida ignorada(s)` : "";
+    document.getElementById("lote-pill").textContent = (validos.length>1
       ? (validos.length+" lotes: "+nomes)
-      : (validos[0].lote+" · "+validos[0].rows.length+" peças ("+count+" linhas)");
+      : (validos[0].lote+" · "+validos[0].rows.length+" peças ("+count+" linhas)")) + semMedida;
     showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll(); setView("sim");
   }catch(err){ showErr("Erro ao ler o PDF: "+err.message); }
 }
