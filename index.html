@@ -251,7 +251,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <h2>Simulação do lote <span class="tag" id="sim-tag"></span></h2>
       <div class="sec-sub">Cada peça do PDF com suas medidas. Ajuste a <b>tábua</b> e quantas peças cabem por lastro
         (<b>I</b> no comprimento × <b>J</b> na largura) — o resto é calculado: peças/pilha, nº de pilhas e
-        <b>metros de esteira</b>.</div>
+        <b>metros de esteira</b>. O <b>I</b> já <b>desconta a folga de segurança</b> de cada ponta (definida em ⚙ Cadastros)
+        para a peça não enroscar no trilho.</div>
       <div class="tbl-wrap"><table id="tbl-sim"></table></div>
     </section>
 
@@ -273,6 +274,10 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <div class="fld">
             <label>Altura da pilha (mm)</label>
             <input type="number" id="p-altura" min="1" step="10">
+          </div>
+          <div class="fld">
+            <label>Folga por ponta (mm)</label>
+            <input type="number" id="p-folga" min="0" step="10" title="folga de cada ponta do comprimento p/ não enroscar no trilho">
           </div>
           <div id="unidades-wrap" class="row" style="gap:12px"></div>
           <button class="linkbtn" id="btn-add-unid" style="margin-bottom:1px">+ Unidade</button>
@@ -358,7 +363,7 @@ const DEFAULT_TABUAS = [
   {id:"t3", comp:1600, larg:380, material:"MDP", esp:null},
   {id:"t4", comp:1850, larg:380, material:"MDP", esp:null},
 ];
-const DEFAULT_PARAMS = { alturaPilha:1200, unidades:[
+const DEFAULT_PARAMS = { alturaPilha:1200, folga:100, unidades:[
   {nome:"UNIDADE I", metros:116, material:"MDP"}, {nome:"UNIDADE II", metros:40, material:"MDF"}
 ]};
 
@@ -369,6 +374,7 @@ let TABUAS = load(LS_TABUAS, null); if(!TABUAS){ TABUAS=DEFAULT_TABUAS.slice(); 
 let PARAMS = load(LS_PARAMS, null); if(!PARAMS){ PARAMS=JSON.parse(JSON.stringify(DEFAULT_PARAMS)); save(LS_PARAMS,PARAMS); }
 // migração: garante o "material que corta" em cada unidade (Un I=MDP, Un II=MDF, demais=Todos)
 (PARAMS.unidades||[]).forEach((u,i)=>{ if(u.material==null) u.material = i===0?"MDP":(i===1?"MDF":"Todos"); });
+if(PARAMS.folga==null) PARAMS.folga=100;   // folga de segurança por ponta (mm) p/ não enroscar no trilho
 save(LS_PARAMS,PARAMS);
 let LOTES  = load(LS_LOTES, {});      // { loteKey: {lote, importedAt, rows:[...]} }
 let CUR = null;                        // loteKey ativo
@@ -455,7 +461,10 @@ function sugTabua(row){
 function calcRow(row){
   let tComp=row.tabuaComp, tLarg=row.tabuaLarg;
   if(tComp==null){ const s=sugTabua(row); tComp=s?s.comp:0; tLarg=s?s.larg:0; }
-  const I = row.I!=null ? row.I : (row.comp ? Math.max(1, Math.floor((tComp||0)/row.comp) || 1) : 1);
+  // folga de segurança nas 2 pontas do comprimento (não enroscar no trilho) → reduz o comprimento útil
+  const folga=(PARAMS.folga!=null?PARAMS.folga:100);
+  const compUtil=Math.max(0,(tComp||0)-2*folga);
+  const I = row.I!=null ? row.I : (row.comp ? Math.max(1, Math.floor(compUtil/row.comp) || 1) : 1);
   const J = row.J!=null ? row.J : (row.larg ? Math.max(1, Math.floor((tLarg||0)/row.larg) || 1) : 1);
   const K = I*J;
   const M = row.alt>0 ? Math.floor(PARAMS.alturaPilha/row.alt * K) : 0;
@@ -493,6 +502,7 @@ function unidadeTotals(key){
 /* ================= render ================= */
 function renderParams(){
   document.getElementById("p-altura").value = PARAMS.alturaPilha;
+  document.getElementById("p-folga").value = (PARAMS.folga!=null?PARAMS.folga:100);
   const wrap=document.getElementById("unidades-wrap"); wrap.innerHTML="";
   (PARAMS.unidades||[]).forEach((u,i)=>{
     const d=document.createElement("div"); d.className="fld";
@@ -838,6 +848,7 @@ document.getElementById("btn-del-lote").addEventListener("click",()=>{
 
 // parâmetros
 document.getElementById("p-altura").addEventListener("change",e=>{ PARAMS.alturaPilha=+e.target.value||1; save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
+document.getElementById("p-folga").addEventListener("change",e=>{ PARAMS.folga=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
 document.getElementById("btn-add-unid").addEventListener("click",()=>{
   PARAMS.unidades.push({nome:"UNIDADE "+(PARAMS.unidades.length+1), metros:0}); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
 });
