@@ -126,12 +126,35 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 .b-warn{background:rgba(255,152,0,.12);color:var(--warn);border:.5px solid rgba(255,152,0,.4)}
 .print-only{display:none}
 
+/* Relatório consolidado — fica oculto na tela; só aparece na impressão/PDF */
+#report-consolidado{display:none;color:#111}
+#report-consolidado .rep-head{display:flex;align-items:center;gap:14px;border-bottom:2px solid #FF5C1F;padding-bottom:10px;margin-bottom:16px}
+#report-consolidado .rep-logo{height:36px}
+#report-consolidado .rep-title{font-family:var(--font-h);font-weight:700;font-size:22px;color:#111}
+#report-consolidado .rep-title span{color:#FF5C1F}
+#report-consolidado .rep-meta{font-family:var(--font-d);font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+#report-consolidado .rep-kpis{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+#report-consolidado .rep-kpis>div{flex:1;min-width:120px;border:1px solid #ccc;border-radius:5px;padding:8px 12px}
+#report-consolidado .rep-kpis span{display:block;font-family:var(--font-d);font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666}
+#report-consolidado .rep-kpis b{font-family:var(--font-h);font-size:20px;color:#111}
+#report-consolidado .rep-tbl{width:100%;border-collapse:collapse;font-size:11px}
+#report-consolidado .rep-tbl th{background:#eee;color:#333;font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:.5px;text-align:right;padding:7px 10px;border-bottom:1px solid #bbb}
+#report-consolidado .rep-tbl td{text-align:right;padding:7px 10px;border-bottom:1px solid #e2e2e2}
+#report-consolidado .rep-tbl th.l,#report-consolidado .rep-tbl td.l{text-align:left}
+#report-consolidado .rep-tbl .rep-tot td{background:#eee;font-weight:700;border-top:1px solid #999}
+#report-consolidado .rep-badge{font-family:var(--font-d);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid currentColor}
+#report-consolidado .r-ok{color:#2e7d32} #report-consolidado .r-warn{color:#e65100} #report-consolidado .r-red{color:#c62828}
+#report-consolidado .rep-foot{margin-top:18px;font-family:var(--font-d);font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;text-align:center}
+
 @media print{
   @page{ size:A4 landscape; margin:11mm; }
   html,body{background:#fff !important;color:#111 !important}
   header,footer,#drop,#err,.foot-actions,#filebar,.no-print{display:none !important}
   main{max-width:100% !important;padding:0 !important}
   .print-only{display:block}
+  /* modo relatório consolidado: imprime só o relatório */
+  body.printing-cons #view-sim, body.printing-cons #view-cad{display:none !important}
+  body.printing-cons #report-consolidado{display:block !important}
   h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
   .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
   table{font-size:9px}
@@ -210,7 +233,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
     </section>
 
     <div class="foot-actions">
-      <button class="linkbtn" id="btn-pdf">🖨️ Gerar relatório em PDF</button>
+      <button class="linkbtn" id="btn-consol">📊 Relatório consolidado (PDF)</button>
+      <button class="linkbtn" id="btn-pdf">🖨️ Relatório do lote (PDF)</button>
       <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
     </div>
   </div><!-- /#painel -->
@@ -257,6 +281,9 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       </div>
     </section>
   </div><!-- /#view-cad -->
+
+  <!-- Relatório consolidado (oculto na tela; usado na impressão/PDF) -->
+  <div id="report-consolidado"></div>
 </main>
 
 <footer>Simulador de Metros Lineares de Trilhos · Patrimar Móveis · processado localmente no navegador</footer>
@@ -607,6 +634,55 @@ document.getElementById("btn-add-tabua").addEventListener("click",()=>{
 });
 
 // export / pdf
+/* ================= relatório consolidado (todos os lotes) ================= */
+function renderConsolidado(){
+  const el=document.getElementById("report-consolidado");
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  const disp=totalDisponivel();
+  let gQ=0,gN=0,gO=0, rows="";
+  for(const k of keys){
+    const T=loteTotals(k); gQ+=T.qty; gN+=T.N; gO+=T.O;
+    const pct=disp>0?T.O/disp:0;
+    const cls=pct>1?"r-red":(pct>0.85?"r-warn":"r-ok");
+    const st=pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK");
+    rows+=`<tr>
+      <td class='l'>${esc(LOTES[k].lote)}</td>
+      <td>${fmtInt(T.qty)}</td><td>${fmtInt(T.N)}</td>
+      <td>${fmt(T.O)}</td><td>${fmt(disp)}</td><td>${fmt(pct*100)}%</td>
+      <td class='l'><span class='rep-badge ${cls}'>${st}</span></td></tr>`;
+  }
+  const now=new Date();
+  el.innerHTML=`
+    <div class="rep-head">
+      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="rep-title">Relatório Consolidado <span>· Simulador de Trilhos</span></div>
+        <div class="rep-meta">Metros lineares de corte · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+      </div>
+    </div>
+    <div class="rep-kpis">
+      <div><span>Lotes</span><b>${keys.length}</b></div>
+      <div><span>Peças</span><b>${fmtInt(gQ)}</b></div>
+      <div><span>Pilhas</span><b>${fmtInt(gN)}</b></div>
+      <div><span>Necessidade total</span><b>${fmt(gO)} m</b></div>
+      <div><span>Trilho disponível</span><b>${fmt(disp)} m</b></div>
+    </div>
+    <table class="rep-tbl">
+      <thead><tr><th class='l'>Lote</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead>
+      <tbody>${rows}
+        <tr class="rep-tot"><td class='l'>Total (${keys.length} lote(s))</td><td>${fmtInt(gQ)}</td><td>${fmtInt(gN)}</td><td>${fmt(gO)}</td><td>—</td><td>—</td><td></td></tr>
+      </tbody>
+    </table>
+    <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador · "Disponível" é a capacidade de trilho por rodada</div>`;
+}
+document.getElementById("btn-consol").addEventListener("click",()=>{
+  if(!Object.keys(LOTES).length){ alert("Importe ao menos um lote para gerar o consolidado."); return; }
+  renderConsolidado();
+  document.body.classList.add("printing-cons");
+  window.print();
+});
+window.addEventListener("afterprint",()=>document.body.classList.remove("printing-cons"));
+
 document.getElementById("btn-xlsx").addEventListener("click",exportXlsx);
 document.getElementById("btn-pdf").addEventListener("click",()=>{
   const lt=LOTES[CUR]; if(!lt) return;
