@@ -112,6 +112,17 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
   border-radius:5px;padding:4px 10px}
 
 .foot-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+
+/* Gráficos (barras horizontais, SVG/CSS puro) */
+.chart{display:flex;flex-direction:column;gap:12px}
+.chart-row{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:center}
+.chart-lbl{font-family:var(--font-d);font-size:12px;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chart-bar{display:flex;align-items:center;gap:10px}
+.bar-track{position:relative;flex:1;background:var(--elevated);border:.5px solid var(--border);border-radius:5px;height:24px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px 0 0 5px;background:var(--acc);transition:width .3s}
+.bar-fill.f-ok{background:var(--ok)} .bar-fill.f-warn{background:var(--warn)} .bar-fill.f-red{background:var(--red)}
+.bar-ref{position:absolute;top:-2px;bottom:-2px;width:0;border-left:2px dashed var(--txt2);z-index:2}
+.chart-val{font-family:var(--font-d);font-size:12px;color:var(--txt2);white-space:nowrap;min-width:150px;text-align:right}
 footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--font-d);font-size:10px;
   text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)}
 .err{background:rgba(244,67,54,.1);border:.5px solid rgba(244,67,54,.4);color:#ffb4ad;padding:14px 16px;
@@ -173,6 +184,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <div class="hdr-setor">Metros lineares de corte · Patrimar</div>
   <nav class="hdr-nav">
     <button id="nav-sim" class="navbtn active">Simulador</button>
+    <button id="nav-cons" class="navbtn">📊 Consolidado</button>
     <button id="nav-cad" class="navbtn">⚙ Cadastros</button>
   </nav>
   <div class="hdr-right">
@@ -233,17 +245,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="tbl-wrap"><table id="tbl-sim"></table></div>
     </section>
 
-    <!-- GERAL -->
-    <section id="sec-geral">
-      <h2>GERAL <span class="tag">todos os lotes importados</span></h2>
-      <div class="sec-sub">Consolidação por lote: necessidade de trilho × disponível e a ocupação.</div>
-      <div class="tbl-wrap"><table id="tbl-geral"></table></div>
-    </section>
-
     <div class="foot-actions">
-      <button class="linkbtn" id="btn-consol">📊 Relatório consolidado (PDF)</button>
       <button class="linkbtn" id="btn-pdf">🖨️ Relatório do lote (PDF)</button>
-      <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
     </div>
   </div><!-- /#painel -->
   </div><!-- /#view-sim -->
@@ -289,6 +292,38 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       </div>
     </section>
   </div><!-- /#view-cad -->
+
+  <!-- ===================== VIEW: CONSOLIDADO ===================== -->
+  <div id="view-cons" class="hidden">
+    <div class="kpis" id="cons-kpis"></div>
+
+    <section id="sec-cons-lote">
+      <h2>Ocupação por lote <span class="tag">necessidade × trilho disponível</span></h2>
+      <div class="sec-sub">Quanto de trilho cada lote consome em relação ao disponível. A linha tracejada marca <b>100%</b> (capacidade).</div>
+      <div class="card"><div id="chart-lote" class="chart"></div></div>
+    </section>
+
+    <section id="sec-cons-unid">
+      <h2>Ocupação por unidade <span class="tag">todos os lotes somados</span></h2>
+      <div class="sec-sub">Necessidade acumulada de cada unidade de corte (MDP → Un. I, MDF → Un. II) contra o trilho disponível dela.</div>
+      <div class="card"><div id="chart-unid" class="chart"></div></div>
+    </section>
+
+    <section id="sec-geral">
+      <h2>GERAL por lote <span class="tag">todos os lotes importados</span></h2>
+      <div class="tbl-wrap"><table id="tbl-geral"></table></div>
+    </section>
+
+    <section id="sec-geral-unid">
+      <h2>Por unidade <span class="tag">consolidado</span></h2>
+      <div class="tbl-wrap"><table id="tbl-geral-unid"></table></div>
+    </section>
+
+    <div class="foot-actions">
+      <button class="linkbtn" id="btn-consol">📊 Relatório consolidado (PDF)</button>
+      <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
+    </div>
+  </div><!-- /#view-cons -->
 
   <!-- Relatório consolidado (oculto na tela; usado na impressão/PDF) -->
   <div id="report-consolidado"></div>
@@ -609,7 +644,66 @@ function renderUnid(){
   }
   h+="</tbody>"; t.innerHTML=h;
 }
-function renderAll(){ renderKpis(); renderUnid(); renderSim(); renderGeral(); }
+/* ---- tela Consolidado (gráficos + tabelas) ---- */
+function barChart(el, items, opts){
+  if(!el) return; opts=opts||{}; const ref=opts.ref!=null?opts.ref:100;
+  const maxPct=Math.max(ref*1.1, ...items.map(i=>i.pct||0), 1);
+  let h="";
+  for(const it of items){
+    const w=Math.max(0, Math.min(100, (it.pct/maxPct)*100));
+    const refLeft=(ref/maxPct)*100;
+    h+=`<div class="chart-row">
+      <div class="chart-lbl" title="${esc(it.label)}">${esc(it.label)}</div>
+      <div class="chart-bar">
+        <div class="bar-track"><div class="bar-fill ${it.cls||""}" style="width:${w}%"></div><div class="bar-ref" style="left:${refLeft}%" title="100% = capacidade"></div></div>
+        <div class="chart-val">${esc(it.value)}</div>
+      </div>
+    </div>`;
+  }
+  el.innerHTML=h||"<div class='sec-sub' style='margin:0'>Sem lotes importados.</div>";
+}
+function statusCls(pct){ return pct>1?"f-red":(pct>0.85?"f-warn":"f-ok"); }
+function renderChartLote(){
+  const el=document.getElementById("chart-lote");
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  const disp=totalDisponivel();
+  barChart(el, keys.map(k=>{ const T=loteTotals(k); const pct=disp>0?T.O/disp:0;
+    return {label:LOTES[k].lote, pct:pct*100, cls:statusCls(pct), value:`${fmt(T.O)} m · ${fmt(pct*100)}%`}; }), {ref:100});
+}
+function renderChartUnid(){
+  const el=document.getElementById("chart-unid");
+  barChart(el, unidadeTotals(null).map(u=>{ const pct=u.metros>0?u.O/u.metros:0;
+    return {label:`${u.nome} (${u.material||"—"})`, pct:pct*100, cls:statusCls(pct),
+      value:`${fmt(u.O)} / ${fmt(u.metros)} m · ${u.metros>0?fmt(pct*100)+"%":"—"}`}; }), {ref:100});
+}
+function renderConsKpis(){
+  const el=document.getElementById("cons-kpis"); if(!el) return;
+  const keys=Object.keys(LOTES); const disp=totalDisponivel();
+  let q=0,n=0,o=0; for(const k of keys){ const T=loteTotals(k); q+=T.qty;n+=T.N;o+=T.O; }
+  const overCap=keys.filter(k=>{const T=loteTotals(k);return disp>0&&T.O/disp>1;}).length;
+  const cards=[
+    {lbl:"Lotes", val:keys.length},
+    {lbl:"Peças", val:fmtInt(q)},
+    {lbl:"Pilhas", val:fmtInt(n)},
+    {lbl:"Necessidade total", val:fmt(o), sub:"m"},
+    {lbl:"Trilho disponível", val:fmt(disp), sub:"m"},
+    {lbl:"Lotes acima da capacidade", val:overCap, cls:overCap?"red":"ok"},
+  ];
+  el.innerHTML=cards.map(c=>`<div class='kpi ${c.cls||""}'><div class='lbl'>${c.lbl}</div><div class='val'>${c.val}${c.sub?` <small>${c.sub}</small>`:""}</div></div>`).join("");
+}
+function renderGeralUnid(){
+  const t=document.getElementById("tbl-geral-unid"); if(!t) return;
+  const U=unidadeTotals(null);
+  let h="<thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>";
+  for(const u of U){ const pct=u.metros>0?u.O/u.metros:0; const cls=pct>1?"b-red":(pct>0.85?"b-warn":"b-ok");
+    const st=u.metros<=0?"—":(pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK"));
+    h+=`<tr><td class='l mono'>${esc(u.nome)}</td><td class='l'>${esc(u.material||"—")}</td><td class='num'>${fmtInt(u.qty)}</td><td class='num'>${fmtInt(u.N)}</td><td class='num'>${fmt(u.O)}</td><td class='num'>${fmt(u.metros)}</td><td class='num'>${u.metros>0?fmt(pct*100)+"%":"—"}</td><td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
+  }
+  h+="</tbody>"; t.innerHTML=h;
+}
+function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
+
+function renderAll(){ renderKpis(); renderUnid(); renderSim(); renderConsView(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -800,12 +894,15 @@ document.getElementById("btn-pdf").addEventListener("click",()=>{
 
 /* navegação entre telas Simulador / Cadastros */
 function setView(v){
-  document.getElementById("view-sim").classList.toggle("hidden", v!=="sim");
-  document.getElementById("view-cad").classList.toggle("hidden", v!=="cad");
-  document.getElementById("nav-sim").classList.toggle("active", v==="sim");
-  document.getElementById("nav-cad").classList.toggle("active", v==="cad");
+  ["sim","cons","cad"].forEach(x=>{
+    const view=document.getElementById("view-"+x), nav=document.getElementById("nav-"+x);
+    if(view) view.classList.toggle("hidden", x!==v);
+    if(nav) nav.classList.toggle("active", x===v);
+  });
+  if(v==="cons") renderConsView();
 }
 document.getElementById("nav-sim").addEventListener("click",()=>setView("sim"));
+document.getElementById("nav-cons").addEventListener("click",()=>setView("cons"));
 document.getElementById("nav-cad").addEventListener("click",()=>setView("cad"));
 
 /* clock */
