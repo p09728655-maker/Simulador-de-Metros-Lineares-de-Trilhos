@@ -266,15 +266,11 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <div id="view-cad" class="hidden">
     <!-- Parâmetros -->
     <section id="sec-param">
-      <h2>Parâmetros de corte <span class="tag">altura da pilha · trilho disponível</span></h2>
+      <h2>Parâmetros de corte <span class="tag">folga · trilho disponível</span></h2>
       <div class="sec-sub">Definem os cálculos de <b>peças por pilha</b> e de <b>% de ocupação do trilho</b>.
         Ficam salvos no navegador e valem para todos os lotes.</div>
       <div class="card">
         <div class="row">
-          <div class="fld">
-            <label>Altura da pilha padrão (mm)</label>
-            <input type="number" id="p-altura" min="1" step="10" title="usada quando a espessura não está na tabela abaixo">
-          </div>
           <div class="fld">
             <label>Folga por ponta (mm)</label>
             <input type="number" id="p-folga" min="0" step="10" title="folga de cada ponta do comprimento p/ não enroscar no trilho">
@@ -477,10 +473,22 @@ function sugTabua(row){
   if(!ord.length) return null;
   return ord.find(t=>t.comp>=alvo) || ord[ord.length-1];
 }
-// altura da pilha para uma espessura (cadastro por espessura; fallback = altura padrão)
+const ALTURA_PADRAO = 1350;   // usada só se surgir uma espessura ainda não cadastrada
+// altura da pilha para uma espessura (vem do cadastro por espessura)
 function alturaParaEsp(esp){
   const hit=(PARAMS.alturasPorEsp||[]).find(a=>+a.esp===+esp);
-  return hit? (+hit.altura||0) : (PARAMS.alturaPilha||1350);
+  return hit? (+hit.altura||0) : ALTURA_PADRAO;
+}
+// garante que toda espessura usada tenha uma linha no cadastro (adiciona com 1350, editável)
+function garantirAlturas(){
+  const list=PARAMS.alturasPorEsp||(PARAMS.alturasPorEsp=[]);
+  const temp=new Set(list.map(a=>+a.esp));
+  let mudou=false;
+  for(const k of Object.keys(LOTES)){
+    for(const r of LOTES[k].rows){ const e=+r.alt;
+      if(e>0 && !temp.has(e)){ list.push({esp:e, altura:ALTURA_PADRAO}); temp.add(e); mudou=true; } }
+  }
+  if(mudou) save(LS_PARAMS,PARAMS);
 }
 // nº de camadas na pilha = altura ÷ espessura, arredondado ao múltiplo de 10 mais próximo (50,60,70,80,90…)
 function camadasFor(esp){
@@ -530,7 +538,6 @@ function unidadeTotals(key){
 
 /* ================= render ================= */
 function renderParams(){
-  document.getElementById("p-altura").value = PARAMS.alturaPilha;
   document.getElementById("p-folga").value = (PARAMS.folga!=null?PARAMS.folga:100);
   const wrap=document.getElementById("unidades-wrap"); wrap.innerHTML="";
   (PARAMS.unidades||[]).forEach((u,i)=>{
@@ -821,14 +828,14 @@ async function handlePdf(file){
       LOTES[key]={ lote:l.lote||file.name, importedAt:new Date().toISOString(), rows:l.rows };
       if(!firstKey) firstKey=key;
     }
-    persistLotes(); CUR=firstKey;
+    persistLotes(); CUR=firstKey; garantirAlturas();
     document.getElementById("fname").textContent=file.name;
     const nomes=validos.map(l=>l.lote).join(", ");
     const semMedida = excluidas>0 ? ` · ${excluidas} sem medida ignorada(s)` : "";
     document.getElementById("lote-pill").textContent = (validos.length>1
       ? (validos.length+" lotes: "+nomes)
       : (validos[0].lote+" · "+validos[0].rows.length+" peças ("+count+" linhas)")) + semMedida;
-    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll(); setView("sim");
+    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAlturas(); renderAll(); setView("sim");
   }catch(err){ showErr("Erro ao ler o PDF: "+err.message); }
 }
 
@@ -904,7 +911,6 @@ document.getElementById("btn-del-lote").addEventListener("click",()=>{
 });
 
 // parâmetros
-document.getElementById("p-altura").addEventListener("change",e=>{ PARAMS.alturaPilha=+e.target.value||1; save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
 document.getElementById("p-folga").addEventListener("change",e=>{ PARAMS.folga=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
 document.getElementById("btn-add-altura").addEventListener("click",()=>{
   const esp=+document.getElementById("a-esp").value, altura=+document.getElementById("a-alt").value;
@@ -1037,10 +1043,10 @@ renderParams(); renderTabuas(); renderAlturas();
 (function restore(){
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   if(keys.length){
-    CUR=keys[0];
+    CUR=keys[0]; garantirAlturas();
     document.getElementById("fname").textContent="(sessão anterior)";
     document.getElementById("lote-pill").textContent=LOTES[CUR].lote;
-    showPainel(); renderLoteSel(); renderAll();
+    showPainel(); renderLoteSel(); renderAlturas(); renderAll();
   }
 })();
 setView("sim");
