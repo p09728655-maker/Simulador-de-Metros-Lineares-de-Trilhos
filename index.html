@@ -272,8 +272,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="card">
         <div class="row">
           <div class="fld">
-            <label>Altura da pilha (mm)</label>
-            <input type="number" id="p-altura" min="1" step="10">
+            <label>Altura da pilha padrão (mm)</label>
+            <input type="number" id="p-altura" min="1" step="10" title="usada quando a espessura não está na tabela abaixo">
           </div>
           <div class="fld">
             <label>Folga por ponta (mm)</label>
@@ -304,6 +304,21 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <button class="btn2" id="btn-add-tabua">Adicionar tábua</button>
         </div>
         <div class="tbl-wrap"><table id="tbl-tabuas"></table></div>
+      </div>
+    </section>
+
+    <!-- Altura da pilha por espessura -->
+    <section id="sec-alturas">
+      <h2>Altura da pilha por espessura <span class="tag">nº de camadas por pilha</span></h2>
+      <div class="sec-sub">A pilha sobe até a <b>altura</b> definida para cada <b>espessura</b> de peça. O nº de <b>camadas</b>
+        = altura ÷ espessura, <b>arredondado ao múltiplo de 10</b> (ex.: 50, 60, 70, 80, 90). Espessura fora da tabela usa a altura padrão.</div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="fld"><label>Espessura (mm)</label><input type="number" id="a-esp" min="1" step="1" placeholder="15"></div>
+          <div class="fld"><label>Altura da pilha (mm)</label><input type="number" id="a-alt" min="1" step="10" placeholder="1350"></div>
+          <button class="btn2" id="btn-add-altura">Adicionar / atualizar</button>
+        </div>
+        <div class="tbl-wrap"><table id="tbl-alturas"></table></div>
       </div>
     </section>
   </div><!-- /#view-cad -->
@@ -375,6 +390,10 @@ let PARAMS = load(LS_PARAMS, null); if(!PARAMS){ PARAMS=JSON.parse(JSON.stringif
 // migração: garante o "material que corta" em cada unidade (Un I=MDP, Un II=MDF, demais=Todos)
 (PARAMS.unidades||[]).forEach((u,i)=>{ if(u.material==null) u.material = i===0?"MDP":(i===1?"MDF":"Todos"); });
 if(PARAMS.folga==null) PARAMS.folga=100;   // folga de segurança por ponta (mm) p/ não enroscar no trilho
+// altura da pilha por espessura (mm) — nº de camadas = altura ÷ espessura, arredondado a múltiplo de 10
+if(!PARAMS.alturasPorEsp) PARAMS.alturasPorEsp=[
+  {esp:12,altura:1350},{esp:15,altura:1350},{esp:18,altura:1350},{esp:20,altura:1350},{esp:25,altura:1350}
+];
 save(LS_PARAMS,PARAMS);
 let LOTES  = load(LS_LOTES, {});      // { loteKey: {lote, importedAt, rows:[...]} }
 let CUR = null;                        // loteKey ativo
@@ -458,6 +477,16 @@ function sugTabua(row){
   if(!ord.length) return null;
   return ord.find(t=>t.comp>=alvo) || ord[ord.length-1];
 }
+// altura da pilha para uma espessura (cadastro por espessura; fallback = altura padrão)
+function alturaParaEsp(esp){
+  const hit=(PARAMS.alturasPorEsp||[]).find(a=>+a.esp===+esp);
+  return hit? (+hit.altura||0) : (PARAMS.alturaPilha||1200);
+}
+// nº de camadas na pilha = altura ÷ espessura, arredondado ao múltiplo de 10 mais próximo (50,60,70,80,90…)
+function camadasFor(esp){
+  if(!esp) return 0;
+  return Math.round((alturaParaEsp(esp)/esp)/10)*10;
+}
 function calcRow(row){
   let tComp=row.tabuaComp, tLarg=row.tabuaLarg;
   if(tComp==null){ const s=sugTabua(row); tComp=s?s.comp:0; tLarg=s?s.larg:0; }
@@ -467,7 +496,7 @@ function calcRow(row){
   const I = row.I!=null ? row.I : (row.comp ? Math.max(1, Math.floor(compUtil/row.comp) || 1) : 1);
   const J = row.J!=null ? row.J : (row.larg ? Math.max(1, Math.floor((tLarg||0)/row.larg) || 1) : 1);
   const K = I*J;
-  const M = row.alt>0 ? Math.floor(PARAMS.alturaPilha/row.alt * K) : 0;
+  const M = row.alt>0 ? camadasFor(row.alt) * K : 0;   // peças/pilha = camadas (arredondadas) × peças/lastro
   const N = M>0 ? Math.ceil(row.qty/M) : 0;
   const O = (tComp/1000)*N;
   const sug=(row.comp||0)+400;
@@ -541,6 +570,22 @@ function renderTabuas(){
   h+="</tbody>"; t.innerHTML=h;
   t.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{
     TABUAS=TABUAS.filter(x=>x.id!==e.target.dataset.del); save(LS_TABUAS,TABUAS); renderTabuas(); renderSim();
+  }));
+}
+function renderAlturas(){
+  const t=document.getElementById("tbl-alturas"); if(!t) return;
+  const list=(PARAMS.alturasPorEsp||[]).slice().sort((a,b)=>a.esp-b.esp);
+  let h="<thead><tr><th>Espessura (mm)</th><th>Altura pilha (mm)</th><th>Camadas (arred.)</th><th></th></tr></thead><tbody>";
+  for(const a of list){
+    const cam=camadasFor(a.esp);
+    h+=`<tr><td class='num'>${a.esp}</td><td class='num'>${a.altura}</td><td class='num'>${cam} <span style='color:var(--txt3);font-size:10px'>(${fmt(a.altura/a.esp)})</span></td>`
+      +`<td><button class='iconbtn' data-del-alt='${a.esp}' title='remover'>🗑</button></td></tr>`;
+  }
+  if(!list.length) h+="<tr><td class='l' colspan='4' style='color:var(--txt2);padding:14px'>Nenhuma espessura cadastrada — usa a altura padrão.</td></tr>";
+  h+="</tbody>"; t.innerHTML=h;
+  t.querySelectorAll("[data-del-alt]").forEach(b=>b.addEventListener("click",e=>{
+    const esp=+e.target.dataset.delAlt; PARAMS.alturasPorEsp=(PARAMS.alturasPorEsp||[]).filter(a=>+a.esp!==esp);
+    save(LS_PARAMS,PARAMS); renderAlturas(); renderAll();
   }));
 }
 function renderLoteSel(){
@@ -849,6 +894,14 @@ document.getElementById("btn-del-lote").addEventListener("click",()=>{
 // parâmetros
 document.getElementById("p-altura").addEventListener("change",e=>{ PARAMS.alturaPilha=+e.target.value||1; save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
 document.getElementById("p-folga").addEventListener("change",e=>{ PARAMS.folga=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
+document.getElementById("btn-add-altura").addEventListener("click",()=>{
+  const esp=+document.getElementById("a-esp").value, altura=+document.getElementById("a-alt").value;
+  if(!esp||!altura){ alert("Informe a espessura e a altura da pilha."); return; }
+  PARAMS.alturasPorEsp=(PARAMS.alturasPorEsp||[]).filter(a=>+a.esp!==esp); // substitui se já existir
+  PARAMS.alturasPorEsp.push({esp,altura}); save(LS_PARAMS,PARAMS);
+  document.getElementById("a-esp").value=""; document.getElementById("a-alt").value="";
+  renderAlturas(); renderAll();
+});
 document.getElementById("btn-add-unid").addEventListener("click",()=>{
   PARAMS.unidades.push({nome:"UNIDADE "+(PARAMS.unidades.length+1), metros:0}); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
 });
@@ -966,7 +1019,7 @@ function tick(){ const d=new Date(); document.getElementById("clock").textConten
 tick(); setInterval(tick,10000);
 
 /* init: cadastros ficam sempre prontos (independem de ter lote importado) */
-renderParams(); renderTabuas();
+renderParams(); renderTabuas(); renderAlturas();
 
 /* restaura sessão anterior (lotes salvos) */
 (function restore(){
