@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de Trilhos · Patrimar</title>
+<meta name="theme-color" content="#0A0A0B">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="xlsx.full.min.js"></script>
+<script src="pdf.min.js"></script>
+<style>
+:root{
+  --bg:#111111; --surface:#1C1C1C; --elevated:#222222; --border:#2A2A2A;
+  --acc:#FF5C1F; --ok:#4CAF50; --warn:#FF9800; --red:#F44336;
+  --txt:#F5F5F5; --txt2:#888888; --txt3:#3A3A3A;
+  --font-h:'Barlow Condensed',sans-serif; --font-b:'Barlow',sans-serif; --font-d:'IBM Plex Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--txt);font-family:var(--font-b);-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--acc)}
+.mono{font-family:var(--font-d)}
+
+header{display:flex;align-items:center;gap:14px;height:54px;padding:0 18px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.hdr-logo{height:30px;width:auto}
+.hdr-title{font-family:var(--font-h);font-weight:700;font-size:16px;letter-spacing:1px}
+.hdr-title span{color:var(--acc)}
+.hdr-setor{font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--txt2);border-left:1px solid var(--border);padding-left:12px;margin-left:2px}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.hdr-clock{font-family:var(--font-d);font-size:13px;color:var(--acc);letter-spacing:1px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+main{flex:1;padding:20px;max-width:min(1760px,96vw);width:100%;margin:0 auto}
+
+#drop{border:1.5px dashed var(--border);border-radius:12px;background:var(--surface);
+  padding:56px 24px;text-align:center;cursor:pointer;transition:.2s;margin-top:24px}
+#drop.hover{border-color:var(--acc);background:#201914}
+#drop .big{font-family:var(--font-h);font-weight:700;font-size:26px;letter-spacing:.5px;margin-bottom:8px}
+#drop .sub{color:var(--txt2);font-size:14px;max-width:560px;margin:0 auto;line-height:1.5}
+#drop .icon{font-size:44px;margin-bottom:14px;opacity:.7}
+#drop .btn{display:inline-block;margin-top:18px;background:var(--acc);color:#111;font-family:var(--font-d);
+  font-weight:600;font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:10px 22px;border-radius:6px}
+.hint{color:var(--txt3);font-size:12px;margin-top:14px;font-family:var(--font-d)}
+
+section{margin-bottom:26px}
+h2{font-family:var(--font-h);font-weight:700;font-size:18px;letter-spacing:.5px;margin-bottom:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h2 .tag{font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--txt2);font-weight:400}
+.sec-sub{color:var(--txt2);font-size:12px;margin-bottom:12px;line-height:1.5}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.kpi{position:relative;background:var(--surface);border:.5px solid var(--border);border-radius:7px;padding:14px 16px;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc)}
+.kpi.ok::before{background:var(--ok)} .kpi.red::before{background:var(--red)} .kpi.warn::before{background:var(--warn)}
+.kpi .lbl{font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--txt2)}
+.kpi .val{font-family:var(--font-h);font-weight:700;font-size:30px;line-height:1.1;margin-top:4px}
+.kpi .val small{font-size:14px;color:var(--txt2);font-weight:600}
+
+.tbl-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:7px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--elevated);font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--txt2);font-weight:600;text-align:right;padding:9px 12px;white-space:nowrap;position:sticky;top:0;z-index:2}
+th.l,td.l{text-align:left}
+td{padding:7px 12px;border-bottom:.5px solid var(--border);text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#191919}
+td.num{font-family:var(--font-d)}
+td.calc{font-family:var(--font-d);color:var(--txt2)}
+td.zero{color:var(--txt3)}
+.trtot td{background:var(--elevated);font-weight:700;font-family:var(--font-d);border-top:1px solid var(--border)}
+.desc-cod{color:var(--acc);font-size:11px;margin-right:4px}
+.desc-txt{font-size:12px}
+.cell-in{background:var(--bg);border:.5px solid var(--border);color:var(--txt);font-family:var(--font-d);
+  font-size:12px;padding:4px 6px;border-radius:5px;width:64px;text-align:right}
+.cell-in:focus{outline:none;border-color:var(--acc)}
+select.cell-sel{background:var(--bg);border:.5px solid var(--border);color:var(--txt);font-family:var(--font-d);
+  font-size:12px;padding:4px 6px;border-radius:5px;cursor:pointer;max-width:150px}
+select.cell-sel:focus{outline:none;border-color:var(--acc)}
+
+.card{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:14px 16px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--txt2)}
+.fld input,.fld select{background:var(--bg);border:.5px solid var(--border);color:var(--txt);font-family:var(--font-d);
+  font-size:12px;padding:7px 9px;border-radius:5px}
+.fld input{width:110px}
+.fld input:focus,.fld select:focus{outline:none;border-color:var(--acc)}
+.btn2{background:var(--acc);color:#111;font-family:var(--font-d);font-weight:600;font-size:11px;letter-spacing:1px;
+  text-transform:uppercase;padding:8px 16px;border:none;border-radius:6px;cursor:pointer}
+.btn2:hover{filter:brightness(1.08)}
+.linkbtn{background:none;border:.5px solid var(--border);color:var(--txt2);font-family:var(--font-d);font-size:11px;
+  text-transform:uppercase;letter-spacing:1px;padding:7px 14px;border-radius:6px;cursor:pointer}
+.linkbtn:hover{border-color:var(--acc);color:var(--acc)}
+.iconbtn{background:none;border:none;color:var(--txt2);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px}
+.iconbtn:hover{color:var(--red)}
+
+#filebar{display:none;align-items:center;gap:14px;background:var(--surface);border:.5px solid var(--border);
+  border-radius:8px;padding:12px 16px;margin-bottom:18px;flex-wrap:wrap}
+#filebar .fname{font-family:var(--font-d);font-size:12px;color:var(--txt)}
+#filebar .sep{color:var(--txt3)}
+.lote-pill{font-family:var(--font-d);font-size:12px;color:var(--acc);border:.5px solid rgba(255,92,31,.4);
+  border-radius:5px;padding:4px 10px}
+
+.foot-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--font-d);font-size:10px;
+  text-transform:uppercase;letter-spacing:1px;border-top:1px solid var(--border)}
+.err{background:rgba(244,67,54,.1);border:.5px solid rgba(244,67,54,.4);color:#ffb4ad;padding:14px 16px;
+  border-radius:8px;font-size:13px;margin-top:18px}
+.ok-msg{color:var(--ok);font-family:var(--font-d);font-size:11px}
+.warn-msg{color:var(--warn);font-family:var(--font-d);font-size:11px}
+.hidden{display:none!important}
+.badge{display:inline-block;font-family:var(--font-d);font-size:10px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.5px;padding:3px 9px;border-radius:20px}
+.b-ok{background:rgba(76,175,80,.12);color:var(--ok);border:.5px solid rgba(76,175,80,.4)}
+.b-red{background:rgba(244,67,54,.12);color:var(--red);border:.5px solid rgba(244,67,54,.4)}
+.b-warn{background:rgba(255,152,0,.12);color:var(--warn);border:.5px solid rgba(255,152,0,.4)}
+.print-only{display:none}
+
+@media print{
+  @page{ size:A4 landscape; margin:11mm; }
+  html,body{background:#fff !important;color:#111 !important}
+  header,footer,#drop,#err,.foot-actions,#filebar,.no-print{display:none !important}
+  main{max-width:100% !important;padding:0 !important}
+  .print-only{display:block}
+  h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
+  .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
+  table{font-size:9px}
+  th{background:#eee !important;color:#333 !important;position:static !important;padding:5px 6px}
+  td{color:#111 !important;background:#fff !important;padding:4px 6px;border-bottom:1px solid #e2e2e2 !important}
+  .trtot td{background:#eee !important;color:#111 !important}
+  .cell-in,select.cell-sel{border:none !important;background:transparent !important;color:#111 !important}
+  .kpi{border:1px solid #bbb} .kpi::before{display:none} .kpi .val{color:#111}
+}
+</style>
+</head>
+<body>
+<header>
+  <img class="hdr-logo" src="patrimar-logo.png" alt="Patrimar móveis" onerror="this.style.display='none'">
+  <div class="hdr-title">SIMULADOR <span>TRILHOS</span></div>
+  <div class="hdr-setor">Metros lineares de corte · Patrimar</div>
+  <div class="hdr-right">
+    <span class="dot"></span>
+    <span class="hdr-clock" id="clock">--:--</span>
+  </div>
+</header>
+
+<main>
+  <!-- Empty state -->
+  <div id="drop">
+    <div class="icon">📄</div>
+    <div class="big">Arraste aqui o PDF do lote</div>
+    <div class="sub">O relatório <b>“OFs Relacionadas ao Lote”</b> (.pdf) que você exporta do sistema.
+      O simulador lê as peças, extrai as <b>medidas</b> e calcula os <b>metros lineares de trilho</b> —
+      tudo no seu navegador, nada é enviado pra internet.</div>
+    <div class="btn">Selecionar PDF</div>
+    <div class="hint">.pdf “OFs Relacionadas ao Lote” · roda local</div>
+    <input type="file" id="file" accept=".pdf,application/pdf" class="hidden">
+  </div>
+  <div id="err" class="err hidden"></div>
+
+  <div id="painel" class="hidden">
+    <div id="filebar">
+      <span class="fname" id="fname"></span>
+      <span class="sep">·</span>
+      <span class="lote-pill" id="lote-pill"></span>
+      <label class="no-print" style="font-family:var(--font-d);font-size:11px;color:var(--txt2);margin-left:8px">Lote:
+        <select id="lote-sel" class="cell-sel"></select>
+      </label>
+      <button class="linkbtn no-print" id="btn-novo">+ Importar outro PDF</button>
+      <button class="linkbtn no-print" id="btn-del-lote" style="margin-left:auto">Remover este lote</button>
+    </div>
+
+    <div class="print-only" id="print-head" style="border-bottom:2px solid #FF5C1F;padding-bottom:8px;margin-bottom:12px">
+      <div style="font-family:var(--font-h);font-weight:700;font-size:19px;color:#111">Simulador de Trilhos · <span id="ph-lote"></span></div>
+      <div id="ph-meta" style="font-family:var(--font-d);font-size:9px;color:#555"></div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <!-- Parâmetros -->
+    <section id="sec-param" class="no-print">
+      <h2>Parâmetros de corte <span class="tag">altura da pilha · trilho disponível</span></h2>
+      <div class="sec-sub">Definem os cálculos de <b>peças por pilha</b> e de <b>% de ocupação do trilho</b>.
+        Ficam salvos no navegador e valem para todos os lotes.</div>
+      <div class="card">
+        <div class="row">
+          <div class="fld">
+            <label>Altura da pilha (mm)</label>
+            <input type="number" id="p-altura" min="1" step="10">
+          </div>
+          <div id="unidades-wrap" class="row" style="gap:12px"></div>
+          <button class="linkbtn" id="btn-add-unid" style="margin-bottom:1px">+ Unidade</button>
+          <div class="fld">
+            <label>Trilho disponível (total)</label>
+            <input type="text" id="p-total" disabled>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cadastro de Tábuas -->
+    <section id="sec-tabuas" class="no-print">
+      <h2>Cadastro de Tábuas (pranchas) <span class="tag">os tamanhos padrão que você corta</span></h2>
+      <div class="sec-sub">As tábuas disponíveis para cada peça. O simulador <b>sugere</b> a de menor comprimento que
+        comporta a peça (peça + 400 mm), mas você pode trocar na tabela. Salvo no navegador.</div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="fld"><label>Comprimento (mm)</label><input type="number" id="t-comp" min="1" step="10" placeholder="1200"></div>
+          <div class="fld"><label>Largura (mm)</label><input type="number" id="t-larg" min="1" step="10" placeholder="380"></div>
+          <div class="fld"><label>Material</label>
+            <select id="t-mat"><option>MDP</option><option>MDF</option><option>Outro</option></select></div>
+          <div class="fld"><label>Espessura (mm)</label><input type="number" id="t-esp" min="0" step="1" placeholder="(qualquer)"></div>
+          <button class="btn2" id="btn-add-tabua">Adicionar tábua</button>
+        </div>
+        <div class="tbl-wrap"><table id="tbl-tabuas"></table></div>
+      </div>
+    </section>
+
+    <!-- Simulador -->
+    <section id="sec-sim">
+      <h2>Simulação do lote <span class="tag" id="sim-tag"></span></h2>
+      <div class="sec-sub">Cada peça do PDF com suas medidas. Ajuste a <b>tábua</b> e quantas peças cabem por lastro
+        (<b>I</b> no comprimento × <b>J</b> na largura) — o resto é calculado: peças/pilha, nº de pilhas e
+        <b>metros de esteira</b>.</div>
+      <div class="tbl-wrap"><table id="tbl-sim"></table></div>
+    </section>
+
+    <!-- GERAL -->
+    <section id="sec-geral">
+      <h2>GERAL <span class="tag">todos os lotes importados</span></h2>
+      <div class="sec-sub">Consolidação por lote: necessidade de trilho × disponível e a ocupação.</div>
+      <div class="tbl-wrap"><table id="tbl-geral"></table></div>
+    </section>
+
+    <div class="foot-actions">
+      <button class="linkbtn" id="btn-pdf">🖨️ Gerar relatório em PDF</button>
+      <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
+    </div>
+  </div>
+</main>
+
+<footer>Simulador de Metros Lineares de Trilhos · Patrimar Móveis · processado localmente no navegador</footer>
+
+<script>
+"use strict";
+
+/* ================= pdf.js ================= */
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc = "pdf.worker.min.js"; }
+
+/* ================= persistência ================= */
+const LS_TABUAS = "simTrilho:tabuas";
+const LS_PARAMS = "simTrilho:params";
+const LS_LOTES  = "simTrilho:lotes";
+
+const DEFAULT_TABUAS = [
+  {id:"t1", comp:1200, larg:380, material:"MDP", esp:null},
+  {id:"t2", comp:1360, larg:380, material:"MDP", esp:null},
+  {id:"t3", comp:1600, larg:380, material:"MDP", esp:null},
+  {id:"t4", comp:1850, larg:380, material:"MDP", esp:null},
+];
+const DEFAULT_PARAMS = { alturaPilha:1200, unidades:[
+  {nome:"UNIDADE I", metros:116}, {nome:"UNIDADE II", metros:40}
+]};
+
+function load(key, fallback){ try{ const v=JSON.parse(localStorage.getItem(key)); return v==null?fallback:v; }catch(e){ return fallback; } }
+function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+let TABUAS = load(LS_TABUAS, null); if(!TABUAS){ TABUAS=DEFAULT_TABUAS.slice(); save(LS_TABUAS,TABUAS); }
+let PARAMS = load(LS_PARAMS, null); if(!PARAMS){ PARAMS=JSON.parse(JSON.stringify(DEFAULT_PARAMS)); save(LS_PARAMS,PARAMS); }
+let LOTES  = load(LS_LOTES, {});      // { loteKey: {lote, importedAt, rows:[...]} }
+let CUR = null;                        // loteKey ativo
+
+/* ================= utils ================= */
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const fmt = n => (Math.round((n||0)*100)/100).toLocaleString("pt-BR");
+const fmtInt = n => Math.round(n||0).toLocaleString("pt-BR");
+function uid(){ return "x"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36); }
+function totalDisponivel(){ return (PARAMS.unidades||[]).reduce((s,u)=>s+(+u.metros||0),0); }
+// ordena "LT 142/26" pelo ano depois nº
+function loteNum(k){ const m=String(k).match(/(\d+)\/(\d+)/); return m? (+m[2])*100000 + (+m[1]) : 9e9; }
+
+/* ================= PDF → peças ================= */
+// junta os fragmentos de texto em linhas (tolerância no Y) e ordena por X
+function itemsToLines(items){
+  const arr = items.map(it=>({x:it.transform[4], y:it.transform[5], s:it.str})).filter(o=>o.s!=null && o.s!=="");
+  arr.sort((a,b)=> b.y - a.y || a.x - b.x);
+  const lines=[]; let cur=null;
+  for(const o of arr){
+    if(!cur || Math.abs(o.y-cur.y)>3){ cur={y:o.y, items:[o]}; lines.push(cur); }
+    else cur.items.push(o);
+  }
+  return lines.map(l=> l.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
+}
+const RE_LOTE = /LT\s*(\d+)\s*\/\s*(\d+)/i;
+const RE_ITEM = /(\d[\d.]*),\d{3}\s+UN\s*(\d{3}\.\d{3}\.\d{3})\s+(.+?)\s+(\d{5,7})\b/;
+const RE_DIM  = /(\d+)\s*[Xx]\s*(\d+)\s*[Xx]\s*(\d+)/;
+
+async function parsePdf(arrayBuffer){
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
+  let lote=null; const items=[];
+  for(let p=1;p<=doc.numPages;p++){
+    const page=await doc.getPage(p);
+    const tc=await page.getTextContent();
+    for(const ln of itemsToLines(tc.items)){
+      if(!lote){ const m=ln.match(RE_LOTE); if(m) lote="LT "+(+m[1])+"/"+m[2]; }
+      if(/Total do (Sub )?Grupo/i.test(ln)) continue;
+      const m=ln.match(RE_ITEM);
+      if(m){
+        const qty=parseInt(m[1].replace(/\./g,""),10);
+        const cod=m[2]; const desc=m[3].trim().replace(/\s+MDP\s+MDP/i," MDP"); const of=m[4];
+        const d=desc.match(RE_DIM);
+        const mat=(desc.match(/\bMD[PF]\b/i)||["MDP"])[0].toUpperCase();
+        items.push({qty,cod,desc,of, comp:d?+d[1]:null, larg:d?+d[2]:null, alt:d?+d[3]:null, material:mat});
+      }
+    }
+  }
+  // agrega por código (soma quantidades das OFs)
+  const agg={};
+  for(const it of items){
+    const a=agg[it.cod] || (agg[it.cod]={cod:it.cod, desc:it.desc, comp:it.comp, larg:it.larg, alt:it.alt,
+                                          material:it.material, qty:0, ofs:[]});
+    a.qty+=it.qty; if(a.ofs.indexOf(it.of)<0) a.ofs.push(it.of);
+  }
+  const rows=Object.values(agg).map(a=>({
+    cod:a.cod, desc:a.desc, comp:a.comp, larg:a.larg, alt:a.alt, material:a.material, qty:a.qty, ofs:a.ofs,
+    tabuaComp:null, tabuaLarg:null, I:null, J:null   // null = usar sugestão
+  }));
+  return {lote, rows, count:items.length};
+}
+
+/* ================= cálculo (espelha o Excel) ================= */
+// sugestão de tábua: menor comprimento >= comp+400; senão a maior cadastrada
+function sugTabua(row){
+  const alvo=(row.comp||0)+400;
+  const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
+  if(!ord.length) return null;
+  return ord.find(t=>t.comp>=alvo) || ord[ord.length-1];
+}
+function calcRow(row){
+  let tComp=row.tabuaComp, tLarg=row.tabuaLarg;
+  if(tComp==null){ const s=sugTabua(row); tComp=s?s.comp:0; tLarg=s?s.larg:0; }
+  const I = row.I!=null ? row.I : Math.max(1, Math.floor((tComp||0)/(row.comp||1)) || 1);
+  const J = row.J!=null ? row.J : Math.max(1, Math.floor((tLarg||0)/(row.larg||1)) || 1);
+  const K = I*J;
+  const M = row.alt>0 ? Math.floor(PARAMS.alturaPilha/row.alt * K) : 0;
+  const N = M>0 ? Math.ceil(row.qty/M) : 0;
+  const O = (tComp/1000)*N;
+  const sug=(row.comp||0)+400;
+  return {tComp,tLarg,I,J,K,M,N,O,sug};
+}
+function loteTotals(key){
+  const lt=LOTES[key]; if(!lt) return {qty:0,N:0,O:0};
+  let qty=0,N=0,O=0;
+  for(const r of lt.rows){ const c=calcRow(r); qty+=r.qty; N+=c.N; O+=c.O; }
+  return {qty,N,O};
+}
+
+/* ================= render ================= */
+function renderParams(){
+  document.getElementById("p-altura").value = PARAMS.alturaPilha;
+  const wrap=document.getElementById("unidades-wrap"); wrap.innerHTML="";
+  (PARAMS.unidades||[]).forEach((u,i)=>{
+    const d=document.createElement("div"); d.className="fld";
+    d.innerHTML=`<label>${esc(u.nome)} (m) <span class="iconbtn" data-rm="${i}" title="remover" style="color:var(--txt3)">✕</span></label>
+      <input type="number" min="0" step="1" data-unid="${i}" value="${u.metros}">`;
+    wrap.appendChild(d);
+  });
+  document.getElementById("p-total").value = fmt(totalDisponivel())+" m";
+  wrap.querySelectorAll("input[data-unid]").forEach(inp=>inp.addEventListener("change",e=>{
+    PARAMS.unidades[+e.target.dataset.unid].metros=+e.target.value||0; save(LS_PARAMS,PARAMS); renderParams(); renderAll();
+  }));
+  wrap.querySelectorAll("[data-rm]").forEach(b=>b.addEventListener("click",e=>{
+    PARAMS.unidades.splice(+e.target.dataset.rm,1); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
+  }));
+}
+function renderTabuas(){
+  const t=document.getElementById("tbl-tabuas");
+  let h="<thead><tr><th class='l'>Tábua</th><th>Comp (mm)</th><th>Larg (mm)</th><th class='l'>Material</th><th>Esp (mm)</th><th></th></tr></thead><tbody>";
+  const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
+  for(const tb of ord){
+    h+=`<tr>
+      <td class='l mono'>${tb.comp}×${tb.larg}</td>
+      <td class='num'>${tb.comp}</td><td class='num'>${tb.larg}</td>
+      <td class='l'>${esc(tb.material||"")}</td>
+      <td class='num ${tb.esp?"":"zero"}'>${tb.esp?tb.esp:"—"}</td>
+      <td><button class='iconbtn' data-del='${tb.id}' title='remover'>🗑</button></td></tr>`;
+  }
+  if(!ord.length) h+="<tr><td class='l' colspan='6' style='color:var(--txt2);padding:14px'>Nenhuma tábua cadastrada — adicione acima.</td></tr>";
+  h+="</tbody>"; t.innerHTML=h;
+  t.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{
+    TABUAS=TABUAS.filter(x=>x.id!==e.target.dataset.del); save(LS_TABUAS,TABUAS); renderTabuas(); renderSim();
+  }));
+}
+function renderLoteSel(){
+  const sel=document.getElementById("lote-sel");
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
+}
+function renderKpis(){
+  const k=document.getElementById("kpis"); const lt=LOTES[CUR]; if(!lt){ k.innerHTML=""; return; }
+  const T=loteTotals(CUR); const disp=totalDisponivel();
+  const pct = disp>0 ? T.O/disp : 0;
+  const pctCls = pct>1?"red":(pct>0.85?"warn":"ok");
+  k.innerHTML=[
+    {lbl:"Peças no lote", val:fmtInt(T.qty), cls:""},
+    {lbl:"Itens (peças distintas)", val:fmtInt(lt.rows.length), cls:""},
+    {lbl:"Pilhas", val:fmtInt(T.N), cls:""},
+    {lbl:"Necessidade trilho", val:fmt(T.O), sub:"m", cls:""},
+    {lbl:"Trilho disponível", val:fmt(disp), sub:"m", cls:""},
+    {lbl:"Ocupação", val:fmt(pct*100), sub:"%", cls:pctCls},
+  ].map(c=>`<div class='kpi ${c.cls}'><div class='lbl'>${c.lbl}</div><div class='val'>${c.val}${c.sub?` <small>${c.sub}</small>`:""}</div></div>`).join("");
+}
+function tabuaOptions(sel){
+  const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
+  return ord.map(t=>`<option value="${t.comp}|${t.larg}" ${sel&&sel.c===t.comp&&sel.l===t.larg?"selected":""}>${t.comp}×${t.larg} ${esc(t.material||"")}</option>`).join("");
+}
+function renderSim(){
+  const lt=LOTES[CUR]; const t=document.getElementById("tbl-sim");
+  document.getElementById("sim-tag").textContent = lt? (lt.lote+" · "+lt.rows.length+" peças") : "";
+  if(!lt){ t.innerHTML=""; return; }
+  let h="<thead><tr>"
+    +"<th class='l'>Peça (código · descrição)</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>"
+    +"<th>Sug. tábua</th><th class='l'>Tábua</th><th>I</th><th>J</th><th>K</th>"
+    +"<th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead><tbody>";
+  let sQ=0,sN=0,sO=0;
+  lt.rows.forEach((r,idx)=>{
+    const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
+    const dimOk = r.comp&&r.larg&&r.alt;
+    h+=`<tr data-i='${idx}'>
+      <td class='l'><span class='mono desc-cod'>${esc(r.cod)}</span><span class='desc-txt'>${esc(r.desc)}</span>${r.ofs&&r.ofs.length>1?` <span style='color:var(--txt3);font-size:10px'>(${r.ofs.length} OFs)</span>`:""}</td>
+      <td class='num'>${fmtInt(r.qty)}</td>
+      <td class='num ${dimOk?"":"zero"}'>${r.comp??"—"}</td>
+      <td class='num ${dimOk?"":"zero"}'>${r.larg??"—"}</td>
+      <td class='num ${dimOk?"":"zero"}'>${r.alt??"—"}</td>
+      <td class='calc'>${c.sug}</td>
+      <td class='l'><select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
+      <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
+      <td><input class='cell-in' type='number' min='0' step='0.5' data-j-in='${idx}' value='${c.J}'></td>
+      <td class='calc'>${fmt(c.K)}</td>
+      <td class='calc'>${fmtInt(c.M)}</td>
+      <td class='calc'>${fmtInt(c.N)}</td>
+      <td class='num'>${fmt(c.O)}</td></tr>`;
+  });
+  h+=`<tr class='trtot'><td class='l'>Total</td><td>${fmtInt(sQ)}</td><td colspan='8'></td>`
+    +`<td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>`;
+  h+="</tbody>"; t.innerHTML=h;
+
+  t.querySelectorAll("select[data-tabua]").forEach(s=>s.addEventListener("change",e=>{
+    const i=+e.target.dataset.tabua; const [c,l]=e.target.value.split("|").map(Number);
+    LOTES[CUR].rows[i].tabuaComp=c; LOTES[CUR].rows[i].tabuaLarg=l;
+    LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // nova tábua → nova sugestão de encaixe
+    persistLotes(); renderSim(); renderKpis(); renderGeral();
+  }));
+  t.querySelectorAll("input[data-i-in]").forEach(inp=>inp.addEventListener("change",e=>{
+    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderGeral();
+  }));
+  t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
+    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderGeral();
+  }));
+}
+function renderGeral(){
+  const t=document.getElementById("tbl-geral");
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  const disp=totalDisponivel();
+  let h="<thead><tr><th class='l'>Lote</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>";
+  let gQ=0,gN=0,gO=0;
+  for(const k of keys){
+    const T=loteTotals(k); gQ+=T.qty; gN+=T.N; gO+=T.O;
+    const pct=disp>0?T.O/disp:0;
+    const cls=pct>1?"b-red":(pct>0.85?"b-warn":"b-ok");
+    const st=pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK");
+    h+=`<tr>
+      <td class='l mono' style='color:${k===CUR?"var(--acc)":"var(--txt)"}'>${esc(LOTES[k].lote)}</td>
+      <td class='num'>${fmtInt(T.qty)}</td><td class='num'>${fmtInt(T.N)}</td>
+      <td class='num'>${fmt(T.O)}</td><td class='num'>${fmt(disp)}</td>
+      <td class='num'>${fmt(pct*100)}%</td>
+      <td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
+  }
+  if(!keys.length) h+="<tr><td class='l' colspan='7' style='color:var(--txt2);padding:14px'>Nenhum lote importado.</td></tr>";
+  else h+=`<tr class='trtot'><td class='l'>Total (${keys.length} lote(s))</td><td>${fmtInt(gQ)}</td><td>${fmtInt(gN)}</td><td>${fmt(gO)}</td><td colspan='3'></td></tr>`;
+  h+="</tbody>"; t.innerHTML=h;
+}
+function renderAll(){ renderKpis(); renderSim(); renderGeral(); }
+function persistLotes(){ save(LS_LOTES, LOTES); }
+
+/* ================= fluxo de arquivo ================= */
+function showErr(msg){ const e=document.getElementById("err"); e.textContent="⚠ "+msg; e.classList.remove("hidden"); }
+function clearErr(){ document.getElementById("err").classList.add("hidden"); }
+function showPainel(){
+  document.getElementById("drop").classList.add("hidden");
+  document.getElementById("painel").classList.remove("hidden");
+  document.getElementById("filebar").style.display="flex";
+}
+
+async function handlePdf(file){
+  clearErr();
+  try{
+    const buf=await file.arrayBuffer();
+    const {lote,rows,count}=await parsePdf(buf);
+    if(!rows.length){ showErr("Não encontrei peças neste PDF. Confira se é o relatório “OFs Relacionadas ao Lote”."); return; }
+    const key = lote || file.name;
+    LOTES[key] = { lote: lote||file.name, importedAt: new Date().toISOString(), rows };
+    persistLotes(); CUR=key;
+    document.getElementById("fname").textContent=file.name;
+    document.getElementById("lote-pill").textContent=(lote||"—")+" · "+rows.length+" peças ("+count+" linhas)";
+    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll();
+  }catch(err){ showErr("Erro ao ler o PDF: "+err.message); }
+}
+
+/* ================= export .xlsx ================= */
+function exportXlsx(){
+  const wb=XLSX.utils.book_new();
+  const usados=new Set();
+  function addLoteSheet(key){
+    const lt=LOTES[key]; const aoa=[];
+    aoa.push(["SIMULAÇÃO CONSUMO EM METROS TRILHOS CORTE", "", "", "", "LOTE", lt.lote]);
+    aoa.push(["Altura pilha:", PARAMS.alturaPilha, "", "Trilho disponível (m):", totalDisponivel()]);
+    aoa.push([]);
+    aoa.push(["CÓDIGO","DESCRIÇÃO","QTDE","COMP","LARG","ALT","SUG.TÁBUA","TÁBUA COMP","TÁBUA LARG","I","J","K","PÇ/PILHA (M)","PILHAS (N)","METROS (O)"]);
+    let sQ=0,sN=0,sO=0;
+    for(const r of lt.rows){
+      const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
+      aoa.push([r.cod,r.desc,r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.I,c.J,c.K,c.M,c.N,Math.round(c.O*100)/100]);
+    }
+    const disp=totalDisponivel();
+    aoa.push(["","TOTAL",sQ,"","","","","","","","","",_r2(sN),_r2(sN),Math.round(sO*100)/100]);
+    aoa.push(["","OCUPAÇÃO",(disp>0?Math.round(sO/disp*10000)/100:0)+"%"]);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    let nm=String(lt.lote).replace(/[\[\]\*\/\\\?:]/g," ").trim().slice(0,31)||"Lote";
+    let base=nm,i=2; while(usados.has(nm)){ nm=(base.slice(0,27)+" "+i).slice(0,31); i++; } usados.add(nm);
+    XLSX.utils.book_append_sheet(wb, ws, nm);
+  }
+  function _r2(n){ return Math.round(n); }
+  // aba GERAL primeiro
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  const disp=totalDisponivel();
+  const g=[["GERAL"],["Lote","Peças","Pilhas","Necessidade (m)","Disponível (m)","Ocupação %"]];
+  for(const k of keys){ const T=loteTotals(k); g.push([LOTES[k].lote,T.qty,Math.round(T.N),Math.round(T.O*100)/100,disp,disp>0?Math.round(T.O/disp*10000)/100:0]); }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(g), "GERAL");
+  for(const k of keys) addLoteSheet(k);
+  XLSX.writeFile(wb, "simulador_trilhos.xlsx");
+}
+
+/* ================= wire up ================= */
+const drop=document.getElementById("drop"), fileInput=document.getElementById("file");
+drop.addEventListener("click",()=>fileInput.click());
+fileInput.addEventListener("change",e=>{ if(e.target.files[0]) handlePdf(e.target.files[0]); fileInput.value=""; });
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("hover");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("hover");}));
+// drop em qualquer lugar do painel também importa
+document.addEventListener("drop",e=>{
+  if(e.target.closest("input,select,textarea")) return;
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f && /\.pdf$/i.test(f.name)){ e.preventDefault(); handlePdf(f); }
+});
+document.addEventListener("dragover",e=>{ if(e.dataTransfer&&e.dataTransfer.types&&[...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+
+document.getElementById("btn-novo").addEventListener("click",()=>fileInput.click());
+document.getElementById("lote-sel").addEventListener("change",e=>{ CUR=e.target.value; renderParams(); renderAll(); });
+document.getElementById("btn-del-lote").addEventListener("click",()=>{
+  if(!CUR) return;
+  if(!confirm("Remover o lote "+(LOTES[CUR]?LOTES[CUR].lote:CUR)+" da lista?")) return;
+  delete LOTES[CUR]; persistLotes();
+  const keys=Object.keys(LOTES); CUR=keys[0]||null;
+  if(!CUR){ // volta pro estado inicial
+    document.getElementById("painel").classList.add("hidden");
+    document.getElementById("drop").classList.remove("hidden");
+    return;
+  }
+  renderLoteSel(); renderAll();
+});
+
+// parâmetros
+document.getElementById("p-altura").addEventListener("change",e=>{ PARAMS.alturaPilha=+e.target.value||1; save(LS_PARAMS,PARAMS); renderParams(); renderAll(); });
+document.getElementById("btn-add-unid").addEventListener("click",()=>{
+  PARAMS.unidades.push({nome:"UNIDADE "+(PARAMS.unidades.length+1), metros:0}); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
+});
+
+// cadastro de tábuas
+document.getElementById("btn-add-tabua").addEventListener("click",()=>{
+  const comp=+document.getElementById("t-comp").value, larg=+document.getElementById("t-larg").value;
+  const material=document.getElementById("t-mat").value, esp=+document.getElementById("t-esp").value||null;
+  if(!comp||!larg){ alert("Informe comprimento e largura da tábua."); return; }
+  TABUAS.push({id:uid(), comp, larg, material, esp}); save(LS_TABUAS,TABUAS);
+  document.getElementById("t-comp").value=""; document.getElementById("t-larg").value=""; document.getElementById("t-esp").value="";
+  renderTabuas(); renderSim(); renderKpis(); renderGeral();
+});
+
+// export / pdf
+document.getElementById("btn-xlsx").addEventListener("click",exportXlsx);
+document.getElementById("btn-pdf").addEventListener("click",()=>{
+  const lt=LOTES[CUR]; if(!lt) return;
+  document.getElementById("ph-lote").textContent=lt.lote;
+  const n=new Date();
+  document.getElementById("ph-meta").textContent="Gerado em "+n.toLocaleString("pt-BR");
+  window.print();
+});
+
+/* clock */
+function tick(){ const d=new Date(); document.getElementById("clock").textContent=
+  String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+tick(); setInterval(tick,10000);
+
+/* restaura sessão anterior (lotes salvos) */
+(function restore(){
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  if(keys.length){
+    CUR=keys[0];
+    document.getElementById("fname").textContent="(sessão anterior)";
+    document.getElementById("lote-pill").textContent=LOTES[CUR].lote;
+    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll();
+  }
+})();
+</script>
+</body>
+</html>
