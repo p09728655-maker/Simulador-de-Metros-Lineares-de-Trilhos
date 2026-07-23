@@ -556,18 +556,24 @@ function renderParams(){
 }
 function renderTabuas(){
   const t=document.getElementById("tbl-tabuas");
-  let h="<thead><tr><th class='l'>Tábua</th><th>Comp (mm)</th><th>Larg (mm)</th><th class='l'>Material</th><th>Esp (mm)</th><th></th></tr></thead><tbody>";
+  let h="<thead><tr><th class='l'>Comprimento (mm)</th><th class='l'>Largura (mm)</th><th class='l'>Material</th><th class='l'>Espessura (mm)</th><th style='width:44px'></th></tr></thead><tbody>";
   const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
+  const matOpt=(sel)=>["MDP","MDF","Outro"].map(m=>`<option ${sel===m?"selected":""}>${m}</option>`).join("");
   for(const tb of ord){
     h+=`<tr>
-      <td class='l mono'>${tb.comp}×${tb.larg}</td>
-      <td class='num'>${tb.comp}</td><td class='num'>${tb.larg}</td>
-      <td class='l'>${esc(tb.material||"")}</td>
-      <td class='num ${tb.esp?"":"zero"}'>${tb.esp?tb.esp:"—"}</td>
-      <td><button class='iconbtn' data-del='${tb.id}' title='remover'>🗑</button></td></tr>`;
+      <td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-tb-comp='${tb.id}' value='${tb.comp}'></td>
+      <td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-tb-larg='${tb.id}' value='${tb.larg}'></td>
+      <td class='l'><select class='cell-sel' data-tb-mat='${tb.id}'>${matOpt(tb.material||"MDP")}</select></td>
+      <td class='l'><input class='cell-in' style='width:90px' type='number' min='0' step='1' data-tb-esp='${tb.id}' value='${tb.esp!=null?tb.esp:""}' placeholder='qualquer'></td>
+      <td class='l'><button class='iconbtn' data-del='${tb.id}' title='remover'>🗑</button></td></tr>`;
   }
-  if(!ord.length) h+="<tr><td class='l' colspan='6' style='color:var(--txt2);padding:14px'>Nenhuma tábua cadastrada — adicione acima.</td></tr>";
+  if(!ord.length) h+="<tr><td class='l' colspan='5' style='color:var(--txt2);padding:14px'>Nenhuma tábua cadastrada — adicione acima.</td></tr>";
   h+="</tbody>"; t.innerHTML=h;
+  const upd=(id,campo,val)=>{ const tb=TABUAS.find(x=>x.id===id); if(!tb) return; tb[campo]=val; save(LS_TABUAS,TABUAS); renderSim(); renderKpis&&renderKpis(); };
+  t.querySelectorAll("input[data-tb-comp]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbComp,"comp",+e.target.value||1)));
+  t.querySelectorAll("input[data-tb-larg]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbLarg,"larg",+e.target.value||1)));
+  t.querySelectorAll("select[data-tb-mat]").forEach(s=>s.addEventListener("change",e=>upd(e.target.dataset.tbMat,"material",e.target.value)));
+  t.querySelectorAll("input[data-tb-esp]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbEsp,"esp",+e.target.value||null)));
   t.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{
     TABUAS=TABUAS.filter(x=>x.id!==e.target.dataset.del); save(LS_TABUAS,TABUAS); renderTabuas(); renderSim();
   }));
@@ -575,14 +581,20 @@ function renderTabuas(){
 function renderAlturas(){
   const t=document.getElementById("tbl-alturas"); if(!t) return;
   const list=(PARAMS.alturasPorEsp||[]).slice().sort((a,b)=>a.esp-b.esp);
-  let h="<thead><tr><th>Espessura (mm)</th><th>Altura pilha (mm)</th><th>Camadas (arred.)</th><th></th></tr></thead><tbody>";
+  let h="<thead><tr><th class='l'>Espessura (mm)</th><th class='l'>Altura pilha (mm)</th><th class='l'>Camadas (arred.)</th><th style='width:44px'></th></tr></thead><tbody>";
   for(const a of list){
     const cam=camadasFor(a.esp);
-    h+=`<tr><td class='num'>${a.esp}</td><td class='num'>${a.altura}</td><td class='num'>${cam} <span style='color:var(--txt3);font-size:10px'>(${fmt(a.altura/a.esp)})</span></td>`
-      +`<td><button class='iconbtn' data-del-alt='${a.esp}' title='remover'>🗑</button></td></tr>`;
+    h+=`<tr><td class='l num'>${a.esp}</td>`
+      +`<td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-alt-esp='${a.esp}' value='${a.altura}'></td>`
+      +`<td class='l num'>${cam} <span style='color:var(--txt3);font-size:10px'>(${fmt(a.altura/a.esp)})</span></td>`
+      +`<td class='l'><button class='iconbtn' data-del-alt='${a.esp}' title='remover'>🗑</button></td></tr>`;
   }
   if(!list.length) h+="<tr><td class='l' colspan='4' style='color:var(--txt2);padding:14px'>Nenhuma espessura cadastrada — usa a altura padrão.</td></tr>";
   h+="</tbody>"; t.innerHTML=h;
+  t.querySelectorAll("input[data-alt-esp]").forEach(i=>i.addEventListener("change",e=>{
+    const esp=+e.target.dataset.altEsp; const a=(PARAMS.alturasPorEsp||[]).find(x=>+x.esp===esp);
+    if(a){ a.altura=+e.target.value||1; save(LS_PARAMS,PARAMS); renderAlturas(); renderAll(); }
+  }));
   t.querySelectorAll("[data-del-alt]").forEach(b=>b.addEventListener("click",e=>{
     const esp=+e.target.dataset.delAlt; PARAMS.alturasPorEsp=(PARAMS.alturasPorEsp||[]).filter(a=>+a.esp!==esp);
     save(LS_PARAMS,PARAMS); renderAlturas(); renderAll();
