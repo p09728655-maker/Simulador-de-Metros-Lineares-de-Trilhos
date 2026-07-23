@@ -616,22 +616,33 @@ function renderGeral(){
   const t=document.getElementById("tbl-geral");
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   const disp=totalDisponivel();
-  let h="<thead><tr><th class='l'>Lote</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>";
-  let gQ=0,gN=0,gO=0;
+  const U=PARAMS.unidades||[];
+  // colunas por unidade: quanto de trilho (necessidade) de cada lote vai pra cada unidade
+  let h="<thead><tr><th class='l'>Lote</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th>";
+  for(const u of U) h+=`<th>${esc(u.nome)} (m)</th>`;
+  h+="<th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead><tbody>";
+  let gQ=0,gN=0,gO=0; const gU=U.map(()=>0);
   for(const k of keys){
     const T=loteTotals(k); gQ+=T.qty; gN+=T.N; gO+=T.O;
+    const perU=unidadeTotals(k);
     const pct=disp>0?T.O/disp:0;
     const cls=pct>1?"b-red":(pct>0.85?"b-warn":"b-ok");
     const st=pct>1?"Acima da capacidade":(pct>0.85?"No limite":"OK");
     h+=`<tr>
       <td class='l mono' style='color:${k===CUR?"var(--acc)":"var(--txt)"}'>${esc(LOTES[k].lote)}</td>
       <td class='num'>${fmtInt(T.qty)}</td><td class='num'>${fmtInt(T.N)}</td>
-      <td class='num'>${fmt(T.O)}</td><td class='num'>${fmt(disp)}</td>
+      <td class='num'>${fmt(T.O)}</td>`;
+    perU.forEach((pu,i)=>{ gU[i]+=pu.O; h+=`<td class='num ${pu.O?"":"zero"}'>${pu.O?fmt(pu.O):"·"}</td>`; });
+    h+=`<td class='num'>${fmt(disp)}</td>
       <td class='num'>${fmt(pct*100)}%</td>
       <td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
   }
-  if(!keys.length) h+="<tr><td class='l' colspan='7' style='color:var(--txt2);padding:14px'>Nenhum lote importado.</td></tr>";
-  else h+=`<tr class='trtot'><td class='l'>Total (${keys.length} lote(s))</td><td>${fmtInt(gQ)}</td><td>${fmtInt(gN)}</td><td>${fmt(gO)}</td><td colspan='3'></td></tr>`;
+  if(!keys.length) h+=`<tr><td class='l' colspan='${7+U.length}' style='color:var(--txt2);padding:14px'>Nenhum lote importado.</td></tr>`;
+  else {
+    h+=`<tr class='trtot'><td class='l'>Total (${keys.length} lote(s))</td><td>${fmtInt(gQ)}</td><td>${fmtInt(gN)}</td><td>${fmt(gO)}</td>`;
+    for(const v of gU) h+=`<td>${fmt(v)}</td>`;
+    h+=`<td colspan='3'></td></tr>`;
+  }
   h+="</tbody>"; t.innerHTML=h;
 }
 function renderUnid(){
