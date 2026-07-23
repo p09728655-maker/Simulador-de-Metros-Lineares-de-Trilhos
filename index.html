@@ -31,6 +31,11 @@ header{display:flex;align-items:center;gap:14px;height:54px;padding:0 18px;backg
 .hdr-title{font-family:var(--font-h);font-weight:700;font-size:16px;letter-spacing:1px}
 .hdr-title span{color:var(--acc)}
 .hdr-setor{font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--txt2);border-left:1px solid var(--border);padding-left:12px;margin-left:2px}
+.hdr-nav{display:flex;gap:6px;margin-left:18px}
+.navbtn{background:none;border:.5px solid var(--border);color:var(--txt2);font-family:var(--font-d);font-size:11px;
+  text-transform:uppercase;letter-spacing:1px;padding:7px 16px;border-radius:6px;cursor:pointer;transition:.15s}
+.navbtn:hover{color:var(--txt);border-color:var(--txt2)}
+.navbtn.active{background:var(--acc);color:#111;border-color:var(--acc);font-weight:600}
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:12px}
 .hdr-clock{font-family:var(--font-d);font-size:13px;color:var(--acc);letter-spacing:1px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:pulse 2s infinite}
@@ -143,6 +148,10 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <img class="hdr-logo" src="patrimar-logo.png" alt="Patrimar móveis" onerror="this.style.display='none'">
   <div class="hdr-title">SIMULADOR <span>TRILHOS</span></div>
   <div class="hdr-setor">Metros lineares de corte · Patrimar</div>
+  <nav class="hdr-nav">
+    <button id="nav-sim" class="navbtn active">Simulador</button>
+    <button id="nav-cad" class="navbtn">⚙ Cadastros</button>
+  </nav>
   <div class="hdr-right">
     <span class="dot"></span>
     <span class="hdr-clock" id="clock">--:--</span>
@@ -150,6 +159,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 </header>
 
 <main>
+  <!-- ===================== VIEW: SIMULADOR ===================== -->
+  <div id="view-sim">
   <!-- Empty state -->
   <div id="drop">
     <div class="icon">📄</div>
@@ -158,7 +169,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       O simulador lê as peças, extrai as <b>medidas</b> e calcula os <b>metros lineares de trilho</b> —
       tudo no seu navegador, nada é enviado pra internet.</div>
     <div class="btn">Selecionar PDF</div>
-    <div class="hint">.pdf “OFs Relacionadas ao Lote” · roda local</div>
+    <div class="hint">.pdf “OFs Relacionadas ao Lote” · roda local · configure as tábuas em <b>⚙ Cadastros</b></div>
     <input type="file" id="file" accept=".pdf,application/pdf" class="hidden">
   </div>
   <div id="err" class="err hidden"></div>
@@ -182,45 +193,6 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 
     <div class="kpis" id="kpis"></div>
 
-    <!-- Parâmetros -->
-    <section id="sec-param" class="no-print">
-      <h2>Parâmetros de corte <span class="tag">altura da pilha · trilho disponível</span></h2>
-      <div class="sec-sub">Definem os cálculos de <b>peças por pilha</b> e de <b>% de ocupação do trilho</b>.
-        Ficam salvos no navegador e valem para todos os lotes.</div>
-      <div class="card">
-        <div class="row">
-          <div class="fld">
-            <label>Altura da pilha (mm)</label>
-            <input type="number" id="p-altura" min="1" step="10">
-          </div>
-          <div id="unidades-wrap" class="row" style="gap:12px"></div>
-          <button class="linkbtn" id="btn-add-unid" style="margin-bottom:1px">+ Unidade</button>
-          <div class="fld">
-            <label>Trilho disponível (total)</label>
-            <input type="text" id="p-total" disabled>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Cadastro de Tábuas -->
-    <section id="sec-tabuas" class="no-print">
-      <h2>Cadastro de Tábuas (pranchas) <span class="tag">os tamanhos padrão que você corta</span></h2>
-      <div class="sec-sub">As tábuas disponíveis para cada peça. O simulador <b>sugere</b> a de menor comprimento que
-        comporta a peça (peça + 400 mm), mas você pode trocar na tabela. Salvo no navegador.</div>
-      <div class="card">
-        <div class="row" style="margin-bottom:12px">
-          <div class="fld"><label>Comprimento (mm)</label><input type="number" id="t-comp" min="1" step="10" placeholder="1200"></div>
-          <div class="fld"><label>Largura (mm)</label><input type="number" id="t-larg" min="1" step="10" placeholder="380"></div>
-          <div class="fld"><label>Material</label>
-            <select id="t-mat"><option>MDP</option><option>MDF</option><option>Outro</option></select></div>
-          <div class="fld"><label>Espessura (mm)</label><input type="number" id="t-esp" min="0" step="1" placeholder="(qualquer)"></div>
-          <button class="btn2" id="btn-add-tabua">Adicionar tábua</button>
-        </div>
-        <div class="tbl-wrap"><table id="tbl-tabuas"></table></div>
-      </div>
-    </section>
-
     <!-- Simulador -->
     <section id="sec-sim">
       <h2>Simulação do lote <span class="tag" id="sim-tag"></span></h2>
@@ -241,7 +213,50 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <button class="linkbtn" id="btn-pdf">🖨️ Gerar relatório em PDF</button>
       <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
     </div>
-  </div>
+  </div><!-- /#painel -->
+  </div><!-- /#view-sim -->
+
+  <!-- ===================== VIEW: CADASTROS ===================== -->
+  <div id="view-cad" class="hidden">
+    <!-- Parâmetros -->
+    <section id="sec-param">
+      <h2>Parâmetros de corte <span class="tag">altura da pilha · trilho disponível</span></h2>
+      <div class="sec-sub">Definem os cálculos de <b>peças por pilha</b> e de <b>% de ocupação do trilho</b>.
+        Ficam salvos no navegador e valem para todos os lotes.</div>
+      <div class="card">
+        <div class="row">
+          <div class="fld">
+            <label>Altura da pilha (mm)</label>
+            <input type="number" id="p-altura" min="1" step="10">
+          </div>
+          <div id="unidades-wrap" class="row" style="gap:12px"></div>
+          <button class="linkbtn" id="btn-add-unid" style="margin-bottom:1px">+ Unidade</button>
+          <div class="fld">
+            <label>Trilho disponível (total)</label>
+            <input type="text" id="p-total" disabled>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cadastro de Tábuas -->
+    <section id="sec-tabuas">
+      <h2>Cadastro de Tábuas (pranchas) <span class="tag">os tamanhos padrão que você corta</span></h2>
+      <div class="sec-sub">As tábuas disponíveis para cada peça. O simulador <b>sugere</b> a de menor comprimento que
+        comporta a peça (peça + 400 mm), mas você pode trocar na tabela. Salvo no navegador.</div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <div class="fld"><label>Comprimento (mm)</label><input type="number" id="t-comp" min="1" step="10" placeholder="1200"></div>
+          <div class="fld"><label>Largura (mm)</label><input type="number" id="t-larg" min="1" step="10" placeholder="380"></div>
+          <div class="fld"><label>Material</label>
+            <select id="t-mat"><option>MDP</option><option>MDF</option><option>Outro</option></select></div>
+          <div class="fld"><label>Espessura (mm)</label><input type="number" id="t-esp" min="0" step="1" placeholder="(qualquer)"></div>
+          <button class="btn2" id="btn-add-tabua">Adicionar tábua</button>
+        </div>
+        <div class="tbl-wrap"><table id="tbl-tabuas"></table></div>
+      </div>
+    </section>
+  </div><!-- /#view-cad -->
 </main>
 
 <footer>Simulador de Metros Lineares de Trilhos · Patrimar Móveis · processado localmente no navegador</footer>
@@ -508,7 +523,7 @@ async function handlePdf(file){
     persistLotes(); CUR=key;
     document.getElementById("fname").textContent=file.name;
     document.getElementById("lote-pill").textContent=(lote||"—")+" · "+rows.length+" peças ("+count+" linhas)";
-    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll();
+    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll(); setView("sim");
   }catch(err){ showErr("Erro ao ler o PDF: "+err.message); }
 }
 
@@ -601,10 +616,23 @@ document.getElementById("btn-pdf").addEventListener("click",()=>{
   window.print();
 });
 
+/* navegação entre telas Simulador / Cadastros */
+function setView(v){
+  document.getElementById("view-sim").classList.toggle("hidden", v!=="sim");
+  document.getElementById("view-cad").classList.toggle("hidden", v!=="cad");
+  document.getElementById("nav-sim").classList.toggle("active", v==="sim");
+  document.getElementById("nav-cad").classList.toggle("active", v==="cad");
+}
+document.getElementById("nav-sim").addEventListener("click",()=>setView("sim"));
+document.getElementById("nav-cad").addEventListener("click",()=>setView("cad"));
+
 /* clock */
 function tick(){ const d=new Date(); document.getElementById("clock").textContent=
   String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
 tick(); setInterval(tick,10000);
+
+/* init: cadastros ficam sempre prontos (independem de ter lote importado) */
+renderParams(); renderTabuas();
 
 /* restaura sessão anterior (lotes salvos) */
 (function restore(){
@@ -613,9 +641,10 @@ tick(); setInterval(tick,10000);
     CUR=keys[0];
     document.getElementById("fname").textContent="(sessão anterior)";
     document.getElementById("lote-pill").textContent=LOTES[CUR].lote;
-    showPainel(); renderLoteSel(); renderParams(); renderTabuas(); renderAll();
+    showPainel(); renderLoteSel(); renderAll();
   }
 })();
+setView("sim");
 </script>
 </body>
 </html>
