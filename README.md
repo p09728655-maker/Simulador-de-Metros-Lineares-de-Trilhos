@@ -12,7 +12,10 @@ na tela e o simulador monta tudo:
   As quantidades das várias OFs de um mesmo código são **somadas**.
 - **Cadastro de Tábuas (pranchas)** — os tamanhos padrão que você corta (já vem com
   1200×380, 1360×380, 1600×380, 1850×380). O simulador **sugere** a tábua de menor comprimento
-  que comporta a peça (peça + 400 mm); você pode trocar a qualquer momento.
+  que comporta a peça (peça + 400 mm); você pode trocar a qualquer momento. A coluna
+  **Sug. tábua** mostra a medida sugerida (comp×larg) e marca com **≠** as peças cujo encaixe
+  atual difere da sugestão. O botão **“Simular com tábuas sugeridas”** aplica a tábua sugerida a
+  todas as peças do lote de uma vez.
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
   `K = I×J`, peças por pilha `M = ARREDONDAR.BAIXO(altura da pilha / ALT × K)`,
   nº de pilhas `N = ARREDONDAR.CIMA(QTDE / M)` e **metros de esteira `O = (comp da tábua / 1000) × N`**.

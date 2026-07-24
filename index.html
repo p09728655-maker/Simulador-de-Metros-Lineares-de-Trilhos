@@ -253,6 +253,9 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
         (<b>I</b> no comprimento × <b>J</b> na largura) — o resto é calculado: peças/pilha, nº de pilhas e
         <b>metros de esteira</b>. O <b>I</b> já <b>desconta a folga de segurança</b> de cada ponta (definida em ⚙ Cadastros)
         para a peça não enroscar no trilho.</div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="linkbtn no-print" id="btn-sug-tabuas" title="Aplica a tábua sugerida (menor que comporta a peça) a todas as peças deste lote">↺ Simular com tábuas sugeridas</button>
+      </div>
       <div class="tbl-wrap"><table id="tbl-sim"></table></div>
     </section>
 
@@ -508,7 +511,22 @@ function calcRow(row){
   const N = M>0 ? Math.ceil(row.qty/M) : 0;
   const O = (tComp/1000)*N;
   const sug=(row.comp||0)+400;
-  return {tComp,tLarg,I,J,K,M,N,O,sug};
+  const st=sugTabua(row);
+  const sugComp=st?st.comp:null, sugLarg=st?st.larg:null;
+  // a peça está usando a tábua sugerida? (ou nem tem override manual)
+  const usaSug = (row.tabuaComp==null) || (st && row.tabuaComp===st.comp && row.tabuaLarg===st.larg);
+  return {tComp,tLarg,I,J,K,M,N,O,sug,sugComp,sugLarg,usaSug};
+}
+// aplica a tábua sugerida a todas as peças de um lote (reseta encaixe I/J p/ recalcular)
+function aplicarSugestoes(key){
+  const lt=LOTES[key]; if(!lt) return 0;
+  let n=0;
+  for(const r of lt.rows){
+    const st=sugTabua(r); if(!st) continue;
+    if(r.tabuaComp!==st.comp || r.tabuaLarg!==st.larg) n++;
+    r.tabuaComp=st.comp; r.tabuaLarg=st.larg; r.I=null; r.J=null;
+  }
+  return n;
 }
 function loteTotals(key){
   const lt=LOTES[key]; if(!lt) return {qty:0,N:0,O:0};
@@ -651,7 +669,7 @@ function renderSim(){
       <td class='num ${dimOk?"":"zero"}'>${r.comp??"—"}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.larg??"—"}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.alt??"—"}</td>
-      <td class='calc'>${c.sug}</td>
+      <td class='calc' title='Menor tábua que comporta a peça (comp + 400 mm = ${c.sug} mm)'>${c.sugComp?`${c.sugComp}×${c.sugLarg}`:c.sug}${!c.usaSug&&c.sugComp?` <span class='badge b-warn' style='padding:0 5px' title='Tábua atual difere da sugerida'>≠</span>`:""}</td>
       <td class='l'><select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
       <td class='l'><select class='cell-sel' data-unid-in='${idx}' title='${esc(r.material||"")}'>${unidadeOptions(resolveUnidadeIdx(r))}</select></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
@@ -922,6 +940,15 @@ document.getElementById("btn-add-altura").addEventListener("click",()=>{
 });
 document.getElementById("btn-add-unid").addEventListener("click",()=>{
   PARAMS.unidades.push({nome:"UNIDADE "+(PARAMS.unidades.length+1), metros:0}); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
+});
+
+// simular com as tábuas sugeridas (aplica a sugestão a todas as peças do lote atual)
+document.getElementById("btn-sug-tabuas").addEventListener("click",()=>{
+  if(!LOTES[CUR]){ return; }
+  if(!TABUAS.length){ alert("Cadastre ao menos uma tábua em ⚙ Cadastros."); return; }
+  const n=aplicarSugestoes(CUR);
+  persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+  if(!n) alert("Todas as peças já estavam usando a tábua sugerida.");
 });
 
 // cadastro de tábuas
