@@ -246,6 +246,15 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="tbl-wrap"><table id="tbl-unid"></table></div>
     </section>
 
+    <!-- Por tábua -->
+    <section id="sec-tabua-view">
+      <h2>Por tábua <span class="tag">a tábua que o algoritmo sugere</span></h2>
+      <div class="sec-sub">Consolida o lote <b>pela tábua usada</b> em cada peça (a sugerida, ou a que você trocou na tabela).
+        Mostra, por tamanho de tábua, quantas peças caem nela, quantas <b>pilhas</b> e os <b>metros de esteira</b>.
+        Use <b>“Simular com tábuas sugeridas”</b> abaixo para ver a distribuição só pelas sugestões do algoritmo.</div>
+      <div class="tbl-wrap"><table id="tbl-tabua-view"></table></div>
+    </section>
+
     <!-- Simulador -->
     <section id="sec-sim">
       <h2>Simulação do lote <span class="tag" id="sim-tag"></span></h2>
@@ -534,6 +543,20 @@ function loteTotals(key){
   for(const r of lt.rows){ const c=calcRow(r); qty+=r.qty; N+=c.N; O+=c.O; }
   return {qty,N,O};
 }
+// totais por tábua usada na simulação (um lote, ou todos se key==null)
+function tabuaTotals(key){
+  const map={};
+  const keys = key==null ? Object.keys(LOTES) : [key];
+  for(const k of keys){ const lt=LOTES[k]; if(!lt) continue;
+    for(const r of lt.rows){ const c=calcRow(r);
+      if(!c.tComp) continue;
+      const kk=c.tComp+"|"+c.tLarg;
+      const o=map[kk]||(map[kk]={comp:c.tComp,larg:c.tLarg, tipos:0, qty:0, N:0, O:0});
+      o.tipos++; o.qty+=r.qty; o.N+=c.N; o.O+=c.O;
+    }
+  }
+  return Object.values(map).sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
+}
 // resolve o índice da unidade de uma peça: override manual > material da peça > "Todos" > primeira
 function resolveUnidadeIdx(row){
   const U=PARAMS.unidades||[]; if(!U.length) return -1;
@@ -687,21 +710,21 @@ function renderSim(){
     const i=+e.target.dataset.tabua; const [c,l]=e.target.value.split("|").map(Number);
     LOTES[CUR].rows[i].tabuaComp=c; LOTES[CUR].rows[i].tabuaLarg=l;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // nova tábua → nova sugestão de encaixe
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderTabuaView(); renderGeral();
   }));
   t.querySelectorAll("button[data-del-row]").forEach(b=>b.addEventListener("click",e=>{
     const i=+e.currentTarget.dataset.delRow; const r=LOTES[CUR].rows[i];
     if(!confirm("Excluir a peça "+(r?r.cod+" — "+r.desc:"")+" da simulação?\n(some deste lote; reimportar o PDF traz de volta)")) return;
-    LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderTabuaView(); renderGeral();
   }));
   t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderTabuaView(); renderGeral();
   }));
   t.querySelectorAll("input[data-i-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderTabuaView(); renderGeral();
   }));
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderTabuaView(); renderGeral();
   }));
 }
 function renderGeral(){
@@ -755,6 +778,27 @@ function renderUnid(){
       <td class='num'>${u.metros>0?fmt(pct*100)+"%":"—"}</td>
       <td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
   }
+  h+="</tbody>"; t.innerHTML=h;
+}
+function renderTabuaView(){
+  const t=document.getElementById("tbl-tabua-view"); if(!t) return;
+  const rows=tabuaTotals(CUR);
+  const totO=rows.reduce((s,r)=>s+r.O,0);
+  let h="<thead><tr><th class='l'>Tábua (comp×larg)</th><th>Tipos de peça</th><th>Qtde peças</th><th>Pilhas</th><th>Metros de esteira (m)</th><th>% dos metros</th></tr></thead><tbody>";
+  let sT=0,sQ=0,sN=0,sO=0;
+  for(const r of rows){
+    sT+=r.tipos; sQ+=r.qty; sN+=r.N; sO+=r.O;
+    const pct=totO>0?r.O/totO:0;
+    h+=`<tr>
+      <td class='l mono'>${r.comp}×${r.larg}</td>
+      <td class='num'>${fmtInt(r.tipos)}</td>
+      <td class='num'>${fmtInt(r.qty)}</td>
+      <td class='num'>${fmtInt(r.N)}</td>
+      <td class='num'>${fmt(r.O)}</td>
+      <td class='num'>${totO>0?fmt(pct*100)+"%":"—"}</td></tr>`;
+  }
+  if(!rows.length) h+="<tr><td class='l' colspan='6' style='color:var(--txt2);padding:14px'>Nenhuma peça no lote.</td></tr>";
+  else h+=`<tr class='trtot'><td class='l'>Total (${rows.length} tábua(s))</td><td>${fmtInt(sT)}</td><td>${fmtInt(sQ)}</td><td>${fmtInt(sN)}</td><td>${fmt(sO)}</td><td>100%</td></tr>`;
   h+="</tbody>"; t.innerHTML=h;
 }
 /* ---- tela Consolidado (gráficos + tabelas) ---- */
@@ -821,7 +865,7 @@ function renderGeralUnid(){
 }
 function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
 
-function renderAll(){ renderKpis(); renderUnid(); renderSim(); renderConsView(); }
+function renderAll(){ renderKpis(); renderUnid(); renderTabuaView(); renderSim(); renderConsView(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -947,7 +991,7 @@ document.getElementById("btn-sug-tabuas").addEventListener("click",()=>{
   if(!LOTES[CUR]){ return; }
   if(!TABUAS.length){ alert("Cadastre ao menos uma tábua em ⚙ Cadastros."); return; }
   const n=aplicarSugestoes(CUR);
-  persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+  persistLotes(); renderSim(); renderKpis(); renderUnid(); renderTabuaView(); renderGeral();
   if(!n) alert("Todas as peças já estavam usando a tábua sugerida.");
 });
 
