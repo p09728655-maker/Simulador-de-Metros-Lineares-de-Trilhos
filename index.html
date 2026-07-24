@@ -246,6 +246,27 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="tbl-wrap"><table id="tbl-unid"></table></div>
     </section>
 
+    <!-- Comparar tábuas: atual x sugeridas menores padronizadas -->
+    <section id="sec-comparativo">
+      <h2>Comparar tábuas <span class="tag">atual × sugeridas menores</span></h2>
+      <div class="sec-sub">As tábuas cadastradas são maiores que a peça, então <b>sobra tábua</b> e gasta mais esteira.
+        Aqui o sistema sugere a <b>menor tábua</b> que ainda encaixa o <b>mesmo nº de peças por lastro</b> — corta a sobra
+        sem perder encaixe — e <b>padroniza</b> num passo fixo (pra não virar medida demais). Mostra <b>quanto de esteira
+        sobraria</b>. Se gostar, é só <b>aplicar</b>.</div>
+      <div class="card" style="margin-bottom:10px">
+        <div class="row" style="align-items:flex-end">
+          <div class="fld"><label>Folga extra (mm)</label>
+            <input type="number" id="p-folga-sug" min="0" step="10" style="width:110px" title="folga adicional além da folga de segurança de cada ponta"></div>
+          <div class="fld"><label>Passo de padronização (mm)</label>
+            <input type="number" id="p-passo-sug" min="10" step="10" style="width:130px" title="arredonda o tamanho sugerido p/ cima nesse múltiplo"></div>
+          <button class="btn2 no-print" id="btn-aplicar-sug" title="Aplica as tábuas sugeridas padronizadas a todas as peças do lote">Aplicar tábuas sugeridas</button>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table id="tbl-comparativo"></table></div>
+      <div class="sec-sub" style="margin:12px 0 6px"><b>Tamanhos sugeridos</b> que surgem neste lote (menos linhas = menos medidas p/ produzir):</div>
+      <div class="tbl-wrap"><table id="tbl-sug-sizes"></table></div>
+    </section>
+
     <!-- Simulador -->
     <section id="sec-sim">
       <h2>Simulação do lote <span class="tag" id="sim-tag"></span></h2>
@@ -510,6 +531,34 @@ function calcRow(row){
   const sug=(row.comp||0)+400;
   return {tComp,tLarg,I,J,K,M,N,O,sug};
 }
+// tábua sugerida menor e padronizada: a MENOR tábua (múltiplo do passo) que ainda encaixa o mesmo
+// nº de peças por lastro (I) da tábua atual — corta a sobra sem perder peças/lastro. Largura fixa 380.
+const FOLGA_SUG_PADRAO=0, PASSO_SUG_PADRAO=100, LARG_SUG=380;
+function folgaSug(){ return PARAMS.folgaSug!=null?+PARAMS.folgaSug:FOLGA_SUG_PADRAO; }   // folga extra (além da de segurança)
+function passoSug(){ const p=PARAMS.passoSug!=null?+PARAMS.passoSug:PASSO_SUG_PADRAO; return p>0?p:PASSO_SUG_PADRAO; }
+function tabuaSugeridaPad(row){
+  if(!row.comp) return null;
+  const folga=(PARAMS.folga!=null?PARAMS.folga:100);   // folga de segurança por ponta
+  const curComp=calcRow(row).tComp||0;                 // tábua atual (cadastrada/override)
+  const targetI=Math.max(1, Math.floor((curComp-2*folga)/row.comp) || 1);  // peças por lastro a preservar
+  const p=passoSug();
+  const tight=targetI*row.comp + 2*folga + folgaSug(); // comprimento mínimo p/ encaixar targetI peças + folgas
+  let L=Math.ceil(tight/p)*p;
+  if(curComp>0) L=Math.min(L, curComp);                // nunca maior que a tábua atual (garante não piorar)
+  return { comp:L, larg:LARG_SUG };
+}
+// calcula I,J,K,M,N,O para uma tábua explícita (encaixe automático, ignora overrides I/J da peça)
+function calcComTabua(row, tComp, tLarg){
+  const folga=(PARAMS.folga!=null?PARAMS.folga:100);
+  const compUtil=Math.max(0,(tComp||0)-2*folga);
+  const I = row.comp ? Math.max(1, Math.floor(compUtil/row.comp) || 1) : 1;
+  const J = row.larg ? Math.max(1, Math.floor((tLarg||0)/row.larg) || 1) : 1;
+  const K = I*J;
+  const M = row.alt>0 ? camadasFor(row.alt) * K : 0;
+  const N = M>0 ? Math.ceil(row.qty/M) : 0;
+  const O = (tComp/1000)*N;
+  return {tComp,tLarg,I,J,K,M,N,O};
+}
 function loteTotals(key){
   const lt=LOTES[key]; if(!lt) return {qty:0,N:0,O:0};
   let qty=0,N=0,O=0;
@@ -669,21 +718,21 @@ function renderSim(){
     const i=+e.target.dataset.tabua; const [c,l]=e.target.value.split("|").map(Number);
     LOTES[CUR].rows[i].tabuaComp=c; LOTES[CUR].rows[i].tabuaLarg=l;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // nova tábua → nova sugestão de encaixe
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
   t.querySelectorAll("button[data-del-row]").forEach(b=>b.addEventListener("click",e=>{
     const i=+e.currentTarget.dataset.delRow; const r=LOTES[CUR].rows[i];
     if(!confirm("Excluir a peça "+(r?r.cod+" — "+r.desc:"")+" da simulação?\n(some deste lote; reimportar o PDF traz de volta)")) return;
-    LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
   t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
   t.querySelectorAll("input[data-i-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
 }
 function renderGeral(){
@@ -738,6 +787,56 @@ function renderUnid(){
       <td class='l'><span class='badge ${cls}'>${st}</span></td></tr>`;
   }
   h+="</tbody>"; t.innerHTML=h;
+}
+function renderComparativo(){
+  const tc=document.getElementById("tbl-comparativo"), ts=document.getElementById("tbl-sug-sizes");
+  if(!tc||!ts) return;
+  // sincroniza os inputs com os parâmetros salvos
+  const iF=document.getElementById("p-folga-sug"), iP=document.getElementById("p-passo-sug");
+  if(iF && document.activeElement!==iF) iF.value=folgaSug();
+  if(iP && document.activeElement!==iP) iP.value=passoSug();
+  const lt=LOTES[CUR];
+  const disp=totalDisponivel();
+  let oA=0,oB=0; const sizes={};
+  if(lt){
+    for(const r of lt.rows){
+      if(!(r.comp&&r.larg&&r.alt)) continue;
+      const a=calcRow(r); oA+=a.O;
+      const st=tabuaSugeridaPad(r); if(!st) continue;
+      const b=calcComTabua(r, st.comp, st.larg); oB+=b.O;
+      const kk=st.comp+"|"+st.larg;
+      const o=sizes[kk]||(sizes[kk]={comp:st.comp,larg:st.larg,tipos:0,qty:0,N:0,O:0});
+      o.tipos++; o.qty+=r.qty; o.N+=b.N; o.O+=b.O;
+    }
+  }
+  const pctA=disp>0?oA/disp:0, pctB=disp>0?oB/disp:0;
+  const dM=oB-oA, dPP=(pctB-pctA)*100;   // sugerido − atual: negativo = economia
+  const clsFor=p=>p>1?"b-red":(p>0.85?"b-warn":"b-ok");
+  const diffCls=dM<-0.0001?"b-ok":(dM>0.0001?"b-red":"b-warn");
+  const sinal=v=>(v>0?"+":"")+fmt(v);   // fmt já usa "−" para negativos
+  // tabela resumo
+  let h="<thead><tr><th class='l'>Métrica</th><th>Atual (cadastradas)</th><th>Sugeridas padronizadas</th><th>Diferença</th></tr></thead><tbody>";
+  h+=`<tr>
+    <td class='l'>Metros de esteira</td>
+    <td class='num'>${fmt(oA)} m</td>
+    <td class='num'>${fmt(oB)} m</td>
+    <td class='num'><span class='badge ${diffCls}'>${sinal(dM)}</span> m</td></tr>`;
+  h+=`<tr>
+    <td class='l'>Ocupação do trilho</td>
+    <td class='num'><span class='badge ${clsFor(pctA)}'>${disp>0?fmt(pctA*100)+"%":"—"}</span></td>
+    <td class='num'><span class='badge ${clsFor(pctB)}'>${disp>0?fmt(pctB*100)+"%":"—"}</span></td>
+    <td class='num'>${disp>0?`<span class='badge ${diffCls}'>${sinal(dPP)}</span> pp`:"—"}</td></tr>`;
+  h+="</tbody>"; tc.innerHTML=h;
+  // tabela de tamanhos sugeridos
+  const rows=Object.values(sizes).sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
+  let s="<thead><tr><th class='l'>Tábua sugerida (comp×larg)</th><th>Tipos de peça</th><th>Qtde peças</th><th>Pilhas</th><th>Metros (m)</th></tr></thead><tbody>";
+  let sT=0,sQ=0,sN=0,sO=0;
+  for(const r of rows){ sT+=r.tipos; sQ+=r.qty; sN+=r.N; sO+=r.O;
+    s+=`<tr><td class='l mono'>${r.comp}×${r.larg}</td><td class='num'>${fmtInt(r.tipos)}</td><td class='num'>${fmtInt(r.qty)}</td><td class='num'>${fmtInt(r.N)}</td><td class='num'>${fmt(r.O)}</td></tr>`;
+  }
+  if(!rows.length) s+="<tr><td class='l' colspan='5' style='color:var(--txt2);padding:14px'>Sem peças com medida neste lote.</td></tr>";
+  else s+=`<tr class='trtot'><td class='l'>Total (${rows.length} tamanho(s))</td><td>${fmtInt(sT)}</td><td>${fmtInt(sQ)}</td><td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>`;
+  s+="</tbody>"; ts.innerHTML=s;
 }
 /* ---- tela Consolidado (gráficos + tabelas) ---- */
 function barChart(el, items, opts){
@@ -803,7 +902,7 @@ function renderGeralUnid(){
 }
 function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
 
-function renderAll(){ renderKpis(); renderUnid(); renderSim(); renderConsView(); }
+function renderAll(){ renderKpis(); renderUnid(); renderComparativo(); renderSim(); renderConsView(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -924,6 +1023,29 @@ document.getElementById("btn-add-unid").addEventListener("click",()=>{
   PARAMS.unidades.push({nome:"UNIDADE "+(PARAMS.unidades.length+1), metros:0}); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
 });
 
+// comparar tábuas: parâmetros da sugestão (folga + passo) e aplicar
+document.getElementById("p-folga-sug").addEventListener("change",e=>{
+  PARAMS.folgaSug=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderComparativo();
+});
+document.getElementById("p-passo-sug").addEventListener("change",e=>{
+  PARAMS.passoSug=Math.max(10,+e.target.value||PASSO_SUG_PADRAO); save(LS_PARAMS,PARAMS); renderComparativo();
+});
+document.getElementById("btn-aplicar-sug").addEventListener("click",()=>{
+  const lt=LOTES[CUR]; if(!lt||!lt.rows.length){ alert("Nenhum lote/peça para aplicar."); return; }
+  if(!confirm("Aplicar as tábuas sugeridas padronizadas a todas as peças deste lote?\nOs tamanhos sugeridos serão adicionados ao cadastro de tábuas. Você pode trocar depois na tabela.")) return;
+  let add=0;
+  for(const r of lt.rows){
+    const st=tabuaSugeridaPad(r); if(!st) continue;
+    if(!TABUAS.some(t=>t.comp===st.comp && t.larg===st.larg)){
+      TABUAS.push({id:uid(), comp:st.comp, larg:st.larg, material:"MDP", esp:null}); add++;
+    }
+    r.tabuaComp=st.comp; r.tabuaLarg=st.larg; r.I=null; r.J=null;
+  }
+  if(add) save(LS_TABUAS,TABUAS);
+  persistLotes();
+  renderTabuas(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+});
+
 // cadastro de tábuas
 document.getElementById("btn-add-tabua").addEventListener("click",()=>{
   const comp=+document.getElementById("t-comp").value, larg=+document.getElementById("t-larg").value;
@@ -931,7 +1053,7 @@ document.getElementById("btn-add-tabua").addEventListener("click",()=>{
   if(!comp||!larg){ alert("Informe comprimento e largura da tábua."); return; }
   TABUAS.push({id:uid(), comp, larg, material, esp}); save(LS_TABUAS,TABUAS);
   document.getElementById("t-comp").value=""; document.getElementById("t-larg").value=""; document.getElementById("t-esp").value="";
-  renderTabuas(); renderSim(); renderKpis(); renderGeral();
+  renderTabuas(); renderSim(); renderKpis(); renderComparativo(); renderGeral();
 });
 
 // export / pdf
