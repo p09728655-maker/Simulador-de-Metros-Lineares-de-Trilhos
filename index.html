@@ -137,35 +137,37 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 .b-warn{background:rgba(255,152,0,.12);color:var(--warn);border:.5px solid rgba(255,152,0,.4)}
 .print-only{display:none}
 
-/* Relatório consolidado — fica oculto na tela; só aparece na impressão/PDF */
-#report-consolidado{display:none;color:#111}
-#report-consolidado .rep-head{display:flex;align-items:center;gap:14px;border-bottom:2px solid #FF5C1F;padding-bottom:10px;margin-bottom:16px}
-#report-consolidado .rep-logo{height:36px}
-#report-consolidado .rep-title{font-family:var(--font-h);font-weight:700;font-size:22px;color:#111}
-#report-consolidado .rep-title span{color:#FF5C1F}
-#report-consolidado .rep-meta{font-family:var(--font-d);font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
-#report-consolidado .rep-kpis{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-#report-consolidado .rep-kpis>div{flex:1;min-width:120px;border:1px solid #ccc;border-radius:5px;padding:8px 12px}
-#report-consolidado .rep-kpis span{display:block;font-family:var(--font-d);font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666}
-#report-consolidado .rep-kpis b{font-family:var(--font-h);font-size:20px;color:#111}
-#report-consolidado .rep-tbl{width:100%;border-collapse:collapse;font-size:11px}
-#report-consolidado .rep-tbl th{background:#eee;color:#333;font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:.5px;text-align:right;padding:7px 10px;border-bottom:1px solid #bbb}
-#report-consolidado .rep-tbl td{text-align:right;padding:7px 10px;border-bottom:1px solid #e2e2e2}
-#report-consolidado .rep-tbl th.l,#report-consolidado .rep-tbl td.l{text-align:left}
-#report-consolidado .rep-tbl .rep-tot td{background:#eee;font-weight:700;border-top:1px solid #999}
-#report-consolidado .rep-badge{font-family:var(--font-d);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid currentColor}
-#report-consolidado .r-ok{color:#2e7d32} #report-consolidado .r-warn{color:#e65100} #report-consolidado .r-red{color:#c62828}
-#report-consolidado .rep-foot{margin-top:18px;font-family:var(--font-d);font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;text-align:center}
-#report-consolidado .rep-ctitle{font-family:var(--font-h);font-weight:700;font-size:14px;margin:16px 0 6px;color:#111}
-#report-consolidado .rep-chart{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
-#report-consolidado .rep-crow{display:grid;grid-template-columns:120px 1fr 155px;gap:10px;align-items:center;font-family:var(--font-d);font-size:10px;color:#333}
-#report-consolidado .rep-ctrack{position:relative;background:#eee;border:1px solid #ccc;border-radius:4px;height:16px;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-#report-consolidado .rep-cfill{height:100%;background:#999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-#report-consolidado .rep-cfill.r-ok{background:#2e7d32}
-#report-consolidado .rep-cfill.r-warn{background:#e65100}
-#report-consolidado .rep-cfill.r-red{background:#c62828}
-#report-consolidado .rep-cref{position:absolute;top:-1px;bottom:-1px;border-left:1.5px dashed #555}
-#report-consolidado .rep-cval{text-align:right;white-space:nowrap}
+/* Relatórios de impressão — ficam ocultos na tela; só aparecem na impressão/PDF */
+.print-report{display:none;color:#111}
+.print-report .rep-head{display:flex;align-items:center;gap:14px;border-bottom:2px solid #FF5C1F;padding-bottom:10px;margin-bottom:16px}
+.print-report .rep-logo{height:36px}
+.print-report .rep-title{font-family:var(--font-h);font-weight:700;font-size:22px;color:#111}
+.print-report .rep-title span{color:#FF5C1F}
+.print-report .rep-meta{font-family:var(--font-d);font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+.print-report .rep-kpis{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.print-report .rep-kpis>div{flex:1;min-width:120px;border:1px solid #ccc;border-radius:5px;padding:8px 12px}
+.print-report .rep-kpis span{display:block;font-family:var(--font-d);font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#666}
+.print-report .rep-kpis b{font-family:var(--font-h);font-size:20px;color:#111}
+.print-report .rep-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.print-report .rep-tbl th{background:#eee;color:#333;font-family:var(--font-d);font-size:9px;text-transform:uppercase;letter-spacing:.5px;text-align:right;padding:7px 10px;border-bottom:1px solid #bbb}
+.print-report .rep-tbl td{text-align:right;padding:7px 10px;border-bottom:1px solid #e2e2e2}
+.print-report .rep-tbl th.l,.print-report .rep-tbl td.l{text-align:left}
+.print-report .rep-tbl .rep-tot td{background:#eee;font-weight:700;border-top:1px solid #999}
+.print-report .rep-tbl tr{break-inside:avoid;page-break-inside:avoid}
+.print-report .rep-tbl thead{display:table-header-group}
+.print-report .rep-badge{font-family:var(--font-d);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid currentColor}
+.print-report .r-ok{color:#2e7d32} .print-report .r-warn{color:#e65100} .print-report .r-red{color:#c62828}
+.print-report .rep-foot{margin-top:18px;font-family:var(--font-d);font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;text-align:center}
+.print-report .rep-ctitle{font-family:var(--font-h);font-weight:700;font-size:14px;margin:16px 0 6px;color:#111}
+.print-report .rep-chart{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+.print-report .rep-crow{display:grid;grid-template-columns:120px 1fr 155px;gap:10px;align-items:center;font-family:var(--font-d);font-size:10px;color:#333}
+.print-report .rep-ctrack{position:relative;background:#eee;border:1px solid #ccc;border-radius:4px;height:16px;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.print-report .rep-cfill{height:100%;background:#999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.print-report .rep-cfill.r-ok{background:#2e7d32}
+.print-report .rep-cfill.r-warn{background:#e65100}
+.print-report .rep-cfill.r-red{background:#c62828}
+.print-report .rep-cref{position:absolute;top:-1px;bottom:-1px;border-left:1.5px dashed #555}
+.print-report .rep-cval{text-align:right;white-space:nowrap}
 
 @media print{
   @page{ size:A4 landscape; margin:11mm; }
@@ -176,6 +178,9 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   /* modo relatório consolidado: imprime só o relatório */
   body.printing-cons #view-sim, body.printing-cons #view-cad, body.printing-cons #view-cons, body.printing-cons #view-comp{display:none !important}
   body.printing-cons #report-consolidado{display:block !important}
+  /* modo relatório de comparação: imprime só o relatório */
+  body.printing-comp #view-sim, body.printing-comp #view-cad, body.printing-comp #view-cons, body.printing-comp #view-comp{display:none !important}
+  body.printing-comp #report-comparativo{display:block !important}
   h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
   .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
   table{font-size:9px}
@@ -356,10 +361,11 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <div id="view-comp" class="hidden">
     <div id="comp-empty" class="sec-sub" style="margin:24px 0">Importe um lote no <b>Simulador</b> para comparar as tábuas.</div>
     <div id="comp-wrap" class="hidden">
-      <div id="filebar" style="margin-bottom:14px">
+      <div id="filebar" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <label class="no-print" style="font-family:var(--font-d);font-size:11px;color:var(--txt2)">Lote:
           <select id="comp-lote-sel" class="cell-sel"></select>
         </label>
+        <button class="linkbtn no-print" id="btn-comp-pdf" style="margin-left:auto">🖨️ Imprimir comparação (PDF)</button>
       </div>
       <section id="sec-comparativo">
         <h2>Comparar tábuas <span class="tag" id="comp-tag"></span></h2>
@@ -377,14 +383,17 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           </div>
         </div>
         <div class="tbl-wrap"><table id="tbl-comparativo"></table></div>
-        <div class="sec-sub" style="margin:12px 0 6px"><b>Tamanhos sugeridos</b> que surgem neste lote (menos linhas = menos medidas p/ produzir):</div>
+        <div class="sec-sub" style="margin:14px 0 6px"><b>Por unidade de corte</b> — economia de esteira em cada unidade:</div>
+        <div class="tbl-wrap"><table id="tbl-comp-unid"></table></div>
+        <div class="sec-sub" style="margin:14px 0 6px"><b>Tamanhos sugeridos</b> que surgem neste lote (menos linhas = menos medidas p/ produzir):</div>
         <div class="tbl-wrap"><table id="tbl-sug-sizes"></table></div>
       </section>
     </div>
   </div><!-- /#view-comp -->
 
-  <!-- Relatório consolidado (oculto na tela; usado na impressão/PDF) -->
-  <div id="report-consolidado"></div>
+  <!-- Relatórios (ocultos na tela; usados na impressão/PDF) -->
+  <div id="report-consolidado" class="print-report"></div>
+  <div id="report-comparativo" class="print-report"></div>
 </main>
 
 <footer>Simulador de Metros Lineares de Trilhos · Patrimar Móveis · processado localmente no navegador</footer>
@@ -804,8 +813,30 @@ function renderCompLoteSel(){
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
 }
+// dados da comparação (atual x sugerido) para um conjunto de peças
+function compDataFor(rows){
+  let oA=0,oB=0; const sizes={};
+  for(const r of (rows||[])){
+    if(!(r.comp&&r.larg&&r.alt)) continue;
+    const a=calcRow(r); oA+=a.O;
+    const st=tabuaSugeridaPad(r); if(!st) continue;
+    const b=calcComTabua(r, st.comp, st.larg); oB+=b.O;
+    const kk=st.comp+"|"+st.larg;
+    const o=sizes[kk]||(sizes[kk]={comp:st.comp,larg:st.larg,tipos:0,qty:0,N:0,O:0});
+    o.tipos++; o.qty+=r.qty; o.N+=b.N; o.O+=b.O;
+  }
+  return {oA,oB,sizes};
+}
+// comparação separada por unidade de corte (alinhado a PARAMS.unidades)
+function compByUnit(lt){
+  const U=PARAMS.unidades||[];
+  const buckets=U.map(()=>[]);
+  if(lt) for(const r of lt.rows){ const idx=resolveUnidadeIdx(r); if(buckets[idx]) buckets[idx].push(r); }
+  return U.map((u,i)=>Object.assign({nome:u.nome, material:u.material, metros:+u.metros||0}, compDataFor(buckets[i])));
+}
 function renderComparativo(){
   const tc=document.getElementById("tbl-comparativo"), ts=document.getElementById("tbl-sug-sizes");
+  const tu=document.getElementById("tbl-comp-unid");
   if(!tc||!ts) return;
   // estado vazio x com lote (view dedicada)
   const empty=document.getElementById("comp-empty"), wrap=document.getElementById("comp-wrap");
@@ -820,18 +851,7 @@ function renderComparativo(){
   if(iP && document.activeElement!==iP) iP.value=passoSug();
   const lt=LOTES[CUR];
   const disp=totalDisponivel();
-  let oA=0,oB=0; const sizes={};
-  if(lt){
-    for(const r of lt.rows){
-      if(!(r.comp&&r.larg&&r.alt)) continue;
-      const a=calcRow(r); oA+=a.O;
-      const st=tabuaSugeridaPad(r); if(!st) continue;
-      const b=calcComTabua(r, st.comp, st.larg); oB+=b.O;
-      const kk=st.comp+"|"+st.larg;
-      const o=sizes[kk]||(sizes[kk]={comp:st.comp,larg:st.larg,tipos:0,qty:0,N:0,O:0});
-      o.tipos++; o.qty+=r.qty; o.N+=b.N; o.O+=b.O;
-    }
-  }
+  const {oA,oB,sizes}=compDataFor(lt?lt.rows:[]);
   const pctA=disp>0?oA/disp:0, pctB=disp>0?oB/disp:0;
   const dM=oB-oA, dPP=(pctB-pctA)*100;   // sugerido − atual: negativo = economia
   const clsFor=p=>p>1?"b-red":(p>0.85?"b-warn":"b-ok");
@@ -850,6 +870,25 @@ function renderComparativo(){
     <td class='num'><span class='badge ${clsFor(pctB)}'>${disp>0?fmt(pctB*100)+"%":"—"}</span></td>
     <td class='num'>${disp>0?`<span class='badge ${diffCls}'>${sinal(dPP)}</span> pp`:"—"}</td></tr>`;
   h+="</tbody>"; tc.innerHTML=h;
+  // tabela por unidade de corte
+  if(tu){
+    const U=compByUnit(lt).filter(u=>u.oA>0||u.oB>0);
+    let u="<thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Atual (m)</th><th>Sugerido (m)</th><th>Economia (m)</th><th>Ocup. atual</th><th>Ocup. sugerida</th></tr></thead><tbody>";
+    let uA=0,uB=0;
+    for(const r of U){ uA+=r.oA; uB+=r.oB;
+      const d=r.oB-r.oA, dc=d<-0.0001?"b-ok":(d>0.0001?"b-red":"b-warn");
+      const pa=r.metros>0?r.oA/r.metros:0, pb=r.metros>0?r.oB/r.metros:0;
+      u+=`<tr><td class='l mono'>${esc(r.nome)}</td><td class='l'>${esc(r.material||"—")}</td>`
+        +`<td class='num'>${fmt(r.oA)}</td><td class='num'>${fmt(r.oB)}</td>`
+        +`<td class='num'><span class='badge ${dc}'>${sinal(d)}</span></td>`
+        +`<td class='num'>${r.metros>0?`<span class='badge ${clsFor(pa)}'>${fmt(pa*100)}%</span>`:"—"}</td>`
+        +`<td class='num'>${r.metros>0?`<span class='badge ${clsFor(pb)}'>${fmt(pb*100)}%</span>`:"—"}</td></tr>`;
+    }
+    if(!U.length) u+="<tr><td class='l' colspan='7' style='color:var(--txt2);padding:14px'>Sem peças com medida neste lote.</td></tr>";
+    else { const dt=uB-uA, dtc=dt<-0.0001?"b-ok":(dt>0.0001?"b-red":"b-warn");
+      u+=`<tr class='trtot'><td class='l' colspan='2'>Total (${U.length} unidade(s))</td><td class='num'>${fmt(uA)}</td><td class='num'>${fmt(uB)}</td><td class='num'><span class='badge ${dtc}'>${sinal(dt)}</span></td><td>—</td><td>—</td></tr>`; }
+    u+="</tbody>"; tu.innerHTML=u;
+  }
   // tabela de tamanhos sugeridos
   const rows=Object.values(sizes).sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
   let s="<thead><tr><th class='l'>Tábua sugerida (comp×larg)</th><th>Tipos de peça</th><th>Qtde peças</th><th>Pilhas</th><th>Metros (m)</th></tr></thead><tbody>";
@@ -1154,7 +1193,79 @@ document.getElementById("btn-consol").addEventListener("click",()=>{
   document.body.classList.add("printing-cons");
   window.print();
 });
-window.addEventListener("afterprint",()=>document.body.classList.remove("printing-cons"));
+
+// relatório de impressão da comparação de tábuas (lote atual)
+function renderComparativoReport(){
+  const el=document.getElementById("report-comparativo");
+  const lt=LOTES[CUR]; if(!el||!lt) return;
+  const disp=totalDisponivel();
+  const {oA,oB,sizes}=compDataFor(lt.rows);
+  const pctA=disp>0?oA/disp:0, pctB=disp>0?oB/disp:0;
+  const dM=oB-oA, dPP=(pctB-pctA)*100;
+  const rows=Object.values(sizes).sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
+  const clsR=p=>p>1?"r-red":(p>0.85?"r-warn":"r-ok");
+  const diffR=d=>d<-0.0001?"r-ok":(d>0.0001?"r-red":"r-warn");
+  const sinal=v=>(v>0?"+":"")+fmt(v);
+  const now=new Date();
+  // linhas por unidade
+  const U=compByUnit(lt).filter(u=>u.oA>0||u.oB>0);
+  let uA=0,uB=0,ur="";
+  for(const r of U){ uA+=r.oA; uB+=r.oB; const d=r.oB-r.oA;
+    const pa=r.metros>0?r.oA/r.metros:0, pb=r.metros>0?r.oB/r.metros:0;
+    ur+=`<tr><td class='l'>${esc(r.nome)}</td><td class='l'>${esc(r.material||"—")}</td>`
+      +`<td>${fmt(r.oA)}</td><td>${fmt(r.oB)}</td>`
+      +`<td><span class='rep-badge ${diffR(d)}'>${sinal(d)}</span></td>`
+      +`<td>${r.metros>0?fmt(pa*100)+"%":"—"}</td><td>${r.metros>0?fmt(pb*100)+"%":"—"}</td></tr>`;
+  }
+  // linhas de tamanhos sugeridos
+  let sT=0,sQ=0,sN=0,sO=0,sr="";
+  for(const r of rows){ sT+=r.tipos; sQ+=r.qty; sN+=r.N; sO+=r.O;
+    sr+=`<tr><td class='l'>${r.comp}×${r.larg}</td><td>${fmtInt(r.tipos)}</td><td>${fmtInt(r.qty)}</td><td>${fmtInt(r.N)}</td><td>${fmt(r.O)}</td></tr>`; }
+  el.innerHTML=`
+    <div class="rep-head">
+      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="rep-title">Comparação de Tábuas <span>· Simulador de Trilhos</span></div>
+        <div class="rep-meta">Lote ${esc(lt.lote)} · Atual x sugerido padronizado · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+      </div>
+    </div>
+    <div class="rep-kpis">
+      <div><span>Esteira atual</span><b>${fmt(oA)} m</b></div>
+      <div><span>Esteira sugerida</span><b>${fmt(oB)} m</b></div>
+      <div><span>Economia</span><b>${sinal(dM)} m</b></div>
+      <div><span>Ocupação atual → sugerida</span><b>${disp>0?fmt(pctA*100)+"% → "+fmt(pctB*100)+"%":"—"}</b></div>
+      <div><span>Tamanhos sugeridos</span><b>${rows.length}</b></div>
+    </div>
+    <table class="rep-tbl">
+      <thead><tr><th class='l'>Métrica</th><th>Atual (cadastradas)</th><th>Sugeridas padronizadas</th><th>Diferença</th></tr></thead>
+      <tbody>
+        <tr><td class='l'>Metros de esteira</td><td>${fmt(oA)} m</td><td>${fmt(oB)} m</td><td><span class='rep-badge ${diffR(dM)}'>${sinal(dM)}</span> m</td></tr>
+        <tr><td class='l'>Ocupação do trilho</td><td>${disp>0?fmt(pctA*100)+"%":"—"}</td><td>${disp>0?fmt(pctB*100)+"%":"—"}</td><td>${disp>0?`<span class='rep-badge ${diffR(dM)}'>${sinal(dPP)}</span> pp`:"—"}</td></tr>
+      </tbody>
+    </table>
+    <div class="rep-ctitle">Por unidade de corte</div>
+    <table class="rep-tbl">
+      <thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Atual (m)</th><th>Sugerido (m)</th><th>Economia (m)</th><th>Ocup. atual</th><th>Ocup. sugerida</th></tr></thead>
+      <tbody>${ur||"<tr><td class='l' colspan='7'>Sem peças com medida neste lote.</td></tr>"}
+        ${U.length?`<tr class="rep-tot"><td class='l' colspan='2'>Total (${U.length} unidade(s))</td><td>${fmt(uA)}</td><td>${fmt(uB)}</td><td><span class='rep-badge ${diffR(uB-uA)}'>${sinal(uB-uA)}</span></td><td>—</td><td>—</td></tr>`:""}
+      </tbody>
+    </table>
+    <div class="rep-ctitle">Tamanhos sugeridos (${rows.length})</div>
+    <table class="rep-tbl">
+      <thead><tr><th class='l'>Tábua sugerida (comp×larg)</th><th>Tipos de peça</th><th>Qtde peças</th><th>Pilhas</th><th>Metros (m)</th></tr></thead>
+      <tbody>${sr||"<tr><td class='l' colspan='5'>Sem peças com medida neste lote.</td></tr>"}
+        ${rows.length?`<tr class="rep-tot"><td class='l'>Total (${rows.length} tamanho(s))</td><td>${fmtInt(sT)}</td><td>${fmtInt(sQ)}</td><td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>`:""}
+      </tbody>
+    </table>
+    <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador · sugestão = menor tábua padronizada que mantém o encaixe</div>`;
+}
+document.getElementById("btn-comp-pdf").addEventListener("click",()=>{
+  if(!LOTES[CUR]){ alert("Importe um lote no Simulador para comparar as tábuas."); return; }
+  renderComparativoReport();
+  document.body.classList.add("printing-comp");
+  window.print();
+});
+window.addEventListener("afterprint",()=>document.body.classList.remove("printing-cons","printing-comp"));
 
 document.getElementById("btn-xlsx").addEventListener("click",exportXlsx);
 document.getElementById("btn-pdf").addEventListener("click",()=>{
