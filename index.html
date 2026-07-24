@@ -174,7 +174,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   main{max-width:100% !important;padding:0 !important}
   .print-only{display:block}
   /* modo relatório consolidado: imprime só o relatório */
-  body.printing-cons #view-sim, body.printing-cons #view-cad, body.printing-cons #view-cons{display:none !important}
+  body.printing-cons #view-sim, body.printing-cons #view-cad, body.printing-cons #view-cons, body.printing-cons #view-comp{display:none !important}
   body.printing-cons #report-consolidado{display:block !important}
   h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
   .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
@@ -194,6 +194,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <div class="hdr-setor">Metros lineares de corte · Patrimar</div>
   <nav class="hdr-nav">
     <button id="nav-sim" class="navbtn active">Simulador</button>
+    <button id="nav-comp" class="navbtn">📐 Comparar tábuas</button>
     <button id="nav-cons" class="navbtn">📊 Consolidado</button>
     <button id="nav-cad" class="navbtn">⚙ Cadastros</button>
   </nav>
@@ -244,27 +245,6 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="sec-sub">Separa a necessidade de trilho deste lote por unidade de corte (pelo material de cada peça).
         Ajuste o material de cada unidade em <b>⚙ Cadastros</b>, ou troque a unidade de uma peça na coluna <b>Unidade</b> da tabela.</div>
       <div class="tbl-wrap"><table id="tbl-unid"></table></div>
-    </section>
-
-    <!-- Comparar tábuas: atual x sugeridas menores padronizadas -->
-    <section id="sec-comparativo">
-      <h2>Comparar tábuas <span class="tag">atual × sugeridas menores</span></h2>
-      <div class="sec-sub">As tábuas cadastradas são maiores que a peça, então <b>sobra tábua</b> e gasta mais esteira.
-        Aqui o sistema sugere a <b>menor tábua</b> que ainda encaixa o <b>mesmo nº de peças por lastro</b> — corta a sobra
-        sem perder encaixe — e <b>padroniza</b> num passo fixo (pra não virar medida demais). Mostra <b>quanto de esteira
-        sobraria</b>. Se gostar, é só <b>aplicar</b>.</div>
-      <div class="card" style="margin-bottom:10px">
-        <div class="row" style="align-items:flex-end">
-          <div class="fld"><label>Folga extra (mm)</label>
-            <input type="number" id="p-folga-sug" min="0" step="10" style="width:110px" title="folga adicional além da folga de segurança de cada ponta"></div>
-          <div class="fld"><label>Passo de padronização (mm)</label>
-            <input type="number" id="p-passo-sug" min="1" step="5" style="width:130px" title="arredonda o tamanho sugerido p/ cima nesse múltiplo (ex.: 5 = de 5 em 5)"></div>
-          <button class="btn2 no-print" id="btn-aplicar-sug" title="Aplica as tábuas sugeridas padronizadas a todas as peças do lote">Aplicar tábuas sugeridas</button>
-        </div>
-      </div>
-      <div class="tbl-wrap"><table id="tbl-comparativo"></table></div>
-      <div class="sec-sub" style="margin:12px 0 6px"><b>Tamanhos sugeridos</b> que surgem neste lote (menos linhas = menos medidas p/ produzir):</div>
-      <div class="tbl-wrap"><table id="tbl-sug-sizes"></table></div>
     </section>
 
     <!-- Simulador -->
@@ -371,6 +351,37 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
     </div>
   </div><!-- /#view-cons -->
+
+  <!-- ===================== VIEW: COMPARAR TÁBUAS ===================== -->
+  <div id="view-comp" class="hidden">
+    <div id="comp-empty" class="sec-sub" style="margin:24px 0">Importe um lote no <b>Simulador</b> para comparar as tábuas.</div>
+    <div id="comp-wrap" class="hidden">
+      <div id="filebar" style="margin-bottom:14px">
+        <label class="no-print" style="font-family:var(--font-d);font-size:11px;color:var(--txt2)">Lote:
+          <select id="comp-lote-sel" class="cell-sel"></select>
+        </label>
+      </div>
+      <section id="sec-comparativo">
+        <h2>Comparar tábuas <span class="tag" id="comp-tag"></span></h2>
+        <div class="sec-sub">As tábuas cadastradas são maiores que a peça, então <b>sobra tábua</b> e gasta mais esteira.
+          Aqui o sistema sugere a <b>menor tábua</b> que ainda encaixa o <b>mesmo nº de peças por lastro</b> — corta a sobra
+          sem perder encaixe — e <b>padroniza</b> num passo fixo (pra não virar medida demais). Mostra <b>quanto de esteira
+          sobraria</b>. Se gostar, é só <b>aplicar</b>.</div>
+        <div class="card" style="margin-bottom:10px">
+          <div class="row" style="align-items:flex-end">
+            <div class="fld"><label>Folga extra (mm)</label>
+              <input type="number" id="p-folga-sug" min="0" step="10" style="width:110px" title="folga adicional além da folga de segurança de cada ponta"></div>
+            <div class="fld"><label>Passo de padronização (mm)</label>
+              <input type="number" id="p-passo-sug" min="1" step="5" style="width:130px" title="arredonda o tamanho sugerido p/ cima nesse múltiplo (ex.: 5 = de 5 em 5)"></div>
+            <button class="btn2 no-print" id="btn-aplicar-sug" title="Aplica as tábuas sugeridas padronizadas a todas as peças do lote">Aplicar tábuas sugeridas</button>
+          </div>
+        </div>
+        <div class="tbl-wrap"><table id="tbl-comparativo"></table></div>
+        <div class="sec-sub" style="margin:12px 0 6px"><b>Tamanhos sugeridos</b> que surgem neste lote (menos linhas = menos medidas p/ produzir):</div>
+        <div class="tbl-wrap"><table id="tbl-sug-sizes"></table></div>
+      </section>
+    </div>
+  </div><!-- /#view-comp -->
 
   <!-- Relatório consolidado (oculto na tela; usado na impressão/PDF) -->
   <div id="report-consolidado"></div>
@@ -788,9 +799,21 @@ function renderUnid(){
   }
   h+="</tbody>"; t.innerHTML=h;
 }
+function renderCompLoteSel(){
+  const sel=document.getElementById("comp-lote-sel"); if(!sel) return;
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
+}
 function renderComparativo(){
   const tc=document.getElementById("tbl-comparativo"), ts=document.getElementById("tbl-sug-sizes");
   if(!tc||!ts) return;
+  // estado vazio x com lote (view dedicada)
+  const empty=document.getElementById("comp-empty"), wrap=document.getElementById("comp-wrap");
+  const temLote=Object.keys(LOTES).length>0;
+  if(empty) empty.classList.toggle("hidden", temLote);
+  if(wrap) wrap.classList.toggle("hidden", !temLote);
+  const tag=document.getElementById("comp-tag");
+  if(tag) tag.textContent = LOTES[CUR] ? LOTES[CUR].lote : "";
   // sincroniza os inputs com os parâmetros salvos
   const iF=document.getElementById("p-folga-sug"), iP=document.getElementById("p-passo-sug");
   if(iF && document.activeElement!==iF) iF.value=folgaSug();
@@ -902,7 +925,7 @@ function renderGeralUnid(){
 }
 function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
 
-function renderAll(){ renderKpis(); renderUnid(); renderComparativo(); renderSim(); renderConsView(); }
+function renderAll(){ renderKpis(); renderUnid(); renderCompLoteSel(); renderComparativo(); renderSim(); renderConsView(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -1023,6 +1046,8 @@ document.getElementById("btn-add-unid").addEventListener("click",()=>{
   PARAMS.unidades.push({nome:"UNIDADE "+(PARAMS.unidades.length+1), metros:0}); save(LS_PARAMS,PARAMS); renderParams(); renderAll();
 });
 
+// comparar tábuas: troca de lote na tela dedicada
+document.getElementById("comp-lote-sel").addEventListener("change",e=>{ CUR=e.target.value; renderParams(); renderAll(); });
 // comparar tábuas: parâmetros da sugestão (folga + passo) e aplicar
 document.getElementById("p-folga-sug").addEventListener("change",e=>{
   PARAMS.folgaSug=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderComparativo();
@@ -1142,14 +1167,16 @@ document.getElementById("btn-pdf").addEventListener("click",()=>{
 
 /* navegação entre telas Simulador / Cadastros */
 function setView(v){
-  ["sim","cons","cad"].forEach(x=>{
+  ["sim","comp","cons","cad"].forEach(x=>{
     const view=document.getElementById("view-"+x), nav=document.getElementById("nav-"+x);
     if(view) view.classList.toggle("hidden", x!==v);
     if(nav) nav.classList.toggle("active", x===v);
   });
   if(v==="cons") renderConsView();
+  if(v==="comp"){ renderCompLoteSel(); renderComparativo(); }
 }
 document.getElementById("nav-sim").addEventListener("click",()=>setView("sim"));
+document.getElementById("nav-comp").addEventListener("click",()=>setView("comp"));
 document.getElementById("nav-cons").addEventListener("click",()=>setView("cons"));
 document.getElementById("nav-cad").addEventListener("click",()=>setView("cad"));
 
