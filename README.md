@@ -18,8 +18,8 @@ na tela e o simulador monta tudo:
   nº de pilhas `N = ARREDONDAR.CIMA(QTDE / M)` e **metros de esteira `O = (comp da tábua / 1000) × N`**.
 - **Comparar tábuas** — como a tábua cadastrada costuma ser maior que a peça, **sobra tábua** e gasta
   mais esteira. Esta visão sugere a **menor tábua** que ainda encaixa o **mesmo nº de peças por lastro**
-  (corta a sobra sem perder encaixe) e **padroniza** os tamanhos num **passo fixo** (ex.: múltiplos de
-  100 mm), para não virar medida demais. Mostra lado a lado *atual × sugeridas* (metros e ocupação, com
+  (corta a sobra sem perder encaixe) e **padroniza** os tamanhos num **passo fixo** (padrão: de **5 em 5 mm**,
+  ex.: 893 → 895), para não virar medida quebrada. Mostra lado a lado *atual × sugeridas* (metros e ocupação, com
   a economia) e lista os tamanhos sugeridos que surgem. O botão **“Aplicar tábuas sugeridas”** troca as
   tábuas das peças e cadastra os novos tamanhos — reversível.
 - **Parâmetros** — altura da pilha (padrão 1200 mm) e o **trilho disponível por unidade**

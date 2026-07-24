@@ -258,7 +258,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <div class="fld"><label>Folga extra (mm)</label>
             <input type="number" id="p-folga-sug" min="0" step="10" style="width:110px" title="folga adicional além da folga de segurança de cada ponta"></div>
           <div class="fld"><label>Passo de padronização (mm)</label>
-            <input type="number" id="p-passo-sug" min="10" step="10" style="width:130px" title="arredonda o tamanho sugerido p/ cima nesse múltiplo"></div>
+            <input type="number" id="p-passo-sug" min="1" step="5" style="width:130px" title="arredonda o tamanho sugerido p/ cima nesse múltiplo (ex.: 5 = de 5 em 5)"></div>
           <button class="btn2 no-print" id="btn-aplicar-sug" title="Aplica as tábuas sugeridas padronizadas a todas as peças do lote">Aplicar tábuas sugeridas</button>
         </div>
       </div>
@@ -533,7 +533,7 @@ function calcRow(row){
 }
 // tábua sugerida menor e padronizada: a MENOR tábua (múltiplo do passo) que ainda encaixa o mesmo
 // nº de peças por lastro (I) da tábua atual — corta a sobra sem perder peças/lastro. Largura fixa 380.
-const FOLGA_SUG_PADRAO=0, PASSO_SUG_PADRAO=100, LARG_SUG=380;
+const FOLGA_SUG_PADRAO=0, PASSO_SUG_PADRAO=5, LARG_SUG=380;
 function folgaSug(){ return PARAMS.folgaSug!=null?+PARAMS.folgaSug:FOLGA_SUG_PADRAO; }   // folga extra (além da de segurança)
 function passoSug(){ const p=PARAMS.passoSug!=null?+PARAMS.passoSug:PASSO_SUG_PADRAO; return p>0?p:PASSO_SUG_PADRAO; }
 function tabuaSugeridaPad(row){
@@ -1028,7 +1028,7 @@ document.getElementById("p-folga-sug").addEventListener("change",e=>{
   PARAMS.folgaSug=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderComparativo();
 });
 document.getElementById("p-passo-sug").addEventListener("change",e=>{
-  PARAMS.passoSug=Math.max(10,+e.target.value||PASSO_SUG_PADRAO); save(LS_PARAMS,PARAMS); renderComparativo();
+  PARAMS.passoSug=Math.max(1,+e.target.value||PASSO_SUG_PADRAO); save(LS_PARAMS,PARAMS); renderComparativo();
 });
 document.getElementById("btn-aplicar-sug").addEventListener("click",()=>{
   const lt=LOTES[CUR]; if(!lt||!lt.rows.length){ alert("Nenhum lote/peça para aplicar."); return; }
