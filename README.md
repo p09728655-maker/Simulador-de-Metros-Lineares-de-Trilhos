@@ -16,11 +16,24 @@ na tela e o simulador monta tudo:
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
   `K = I×J`, peças por pilha `M = ARREDONDAR.BAIXO(altura da pilha / ALT × K)`,
   nº de pilhas `N = ARREDONDAR.CIMA(QTDE / M)` e **metros de esteira `O = (comp da tábua / 1000) × N`**.
+- **Comparar tábuas** — como a tábua cadastrada costuma ser maior que a peça, **sobra tábua** e gasta
+  mais esteira. Esta visão sugere a **menor tábua** que ainda encaixa o **mesmo nº de peças por lastro**
+  (corta a sobra sem perder encaixe) e **padroniza** os tamanhos num **passo fixo** (padrão: de **5 em 5 mm**,
+  ex.: 893 → 895), para não virar medida quebrada. Mostra lado a lado *atual × sugeridas* (metros e ocupação, com
+  a economia) e lista os tamanhos sugeridos que surgem. O botão **“Aplicar tábuas sugeridas”** troca as
+  tábuas das peças e cadastra os novos tamanhos — reversível.
 - **Parâmetros** — altura da pilha (padrão 1200 mm) e o **trilho disponível por unidade**
   (ex.: Unidade I = 116 m, Unidade II = 40 m → 156 m), usados para a **% de ocupação**.
 - **GERAL** — consolida todos os lotes importados (necessidade × disponível × ocupação).
-- **Exportar** — baixa a simulação em `.xlsx` (uma aba por lote + aba GERAL) ou gera um relatório
-  em PDF (impressão do navegador).
+- **Salvar / imprimir** — os botões ficam no **topo** da tela:
+  - **Imprimir TODOS os lotes (PDF)** — um único PDF com o **resumo de todos os lotes** na 1ª página
+    (consolidado + ocupação por lote e por unidade) e depois **uma página por lote**, com KPIs,
+    quebra por unidade de corte e a tabela completa de peças.
+  - **Relatório deste lote (PDF)** — só o lote selecionado.
+  - **Salvar TODOS os lotes (.xlsx)** — uma aba por lote + aba GERAL.
+  - **Comparação de TODOS os lotes (PDF)** — na tela *Comparar tábuas*, uma página por lote.
+  - O arquivo **já sai nomeado pelo lote**: `LOTE 140.pdf` / `LOTES 140, 142.pdf` / `LOTE 140.xlsx`
+    (o nome sugerido pelo navegador em *Salvar como PDF* vem do título da página).
 
 Tudo roda **no navegador** — nenhum dado é enviado para a internet. O cadastro de tábuas, os
 parâmetros e os lotes importados ficam guardados localmente (`localStorage`).
