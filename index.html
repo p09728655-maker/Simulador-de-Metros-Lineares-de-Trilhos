@@ -1187,6 +1187,16 @@ function lastroSvg(r, c, tema){
     g+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${cor.pc}" stroke="${st}" stroke-width="1"${foraTol?' stroke-dasharray="4 2"':""}/>`;
     if(w>52&&h>14) g+=t(x+w/2, y+h/2+3, pC+"×"+pL, "middle", 10);
   }
+  // o pedaço da peça que fica FORA da tábua sai marcado, e a borda da tábua é
+  // redesenhada por cima das peças — assim não dá p/ confundir peça com tábua
+  if(excede){
+    const foraFill=claro?"rgba(198,40,40,.13)":"rgba(255,107,94,.22)";
+    const faixa=(y,h)=>`<rect x="${xPc.toFixed(1)}" y="${y.toFixed(1)}" width="${compPc.toFixed(1)}" height="${h.toFixed(1)}" fill="${foraFill}" stroke="none"/>`;
+    const cima=TOP-yPc, baixo=(yPc+larguraPc)-(TOP+H);
+    if(cima>0.5) g+=faixa(yPc,cima);
+    if(baixo>0.5) g+=faixa(TOP+H,baixo);
+  }
+  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="none" stroke="${claro?"#444":"#b9b9b9"}" stroke-width="2"/>`;
   // sobra na largura — metade em cima, metade embaixo (peças centralizadas)
   const sobraL=Math.max(0, tL-J*pL);
   if(sobraL>0.5 && J>0){
