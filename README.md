@@ -11,8 +11,12 @@ na tela e o simulador monta tudo:
   `COMP × LARG × ALT` embutidas na descrição (ex.: `RACK YAN TAMPO 900X400X15 …` → 900 × 400 × 15 mm).
   As quantidades das várias OFs de um mesmo código são **somadas**.
 - **Cadastro de Tábuas (pranchas)** — os tamanhos padrão que você corta (já vem com
-  1200×380, 1360×380, 1600×380, 1850×380). O simulador **sugere** a tábua de menor comprimento
+  1200×500, 1360×500, 1600×500, 1850×500). O simulador **sugere** a tábua de menor comprimento
   que comporta a peça (peça + 400 mm); você pode trocar a qualquer momento.
+- **Encaixe em pé ou virada** — o simulador testa as **duas orientações** da peça na tábua e fica com a
+  que rende **mais peças por lastro** (coluna **Giro**: `Auto` · `Em pé` · `Virada ↻`, travável por peça).
+  Ex.: `417×141` numa tábua `1200×500` → **virada**: 7 por lastro em vez de 6. Em ⚙ Cadastros dá pra
+  permitir que a peça **passe um pouco da largura** da tábua (padrão 0 mm = não pode passar).
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
   `K = I×J`, peças por pilha `M = ARREDONDAR.BAIXO(altura da pilha / ALT × K)`,
   nº de pilhas `N = ARREDONDAR.CIMA(QTDE / M)` e **metros de esteira `O = (comp da tábua / 1000) × N`**.
