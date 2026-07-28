@@ -61,8 +61,10 @@ na tela e o simulador monta tudo:
 - **GERAL** — consolida todos os lotes importados (necessidade × disponível × ocupação).
 - **Aba “🖼 Desenhos”** — os desenhos e a lista de tábuas do lote ganharam tela própria, para não
   rolar o Simulador inteiro. A barra de ocupação acompanha em todas as telas.
-- **Cor por medida de tábua** — cada medida tem uma cor (editável em ⚙ Cadastros, ex.: 910 azul,
-  1500 verde). A cor aparece no desenho, na tabela do lote, na coluna Tábua e **sai nos relatórios**.
+- **Cor da borda por medida de tábua** — cores simples de pintar (Azul, Verde, Vermelho, Amarelo,
+  Laranja, Roxo, Rosa, Marrom, Preto, Branco, Cinza), escolhidas em ⚙ Cadastros. A cor **e o nome**
+  aparecem no desenho (`tábua 1500 × 500 mm · borda PRETO`), na coluna **Cor da borda** da tabela de
+  tábuas, na coluna Tábua da simulação e **saem impressos** nos relatórios.
 - **Desenho do lastro** — mostra **como as peças ficam deitadas na tábua**, vista de cima: a folga de
   segurança de cada ponta, as peças encaixadas (`I × J`) e a **sobra de tábua**. Sai **1 exemplo de cada
   arranjo** do lote (peças com a mesma tábua + mesma medida + mesmo encaixe entram no mesmo desenho) e

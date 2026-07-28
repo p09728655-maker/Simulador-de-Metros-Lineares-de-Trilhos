@@ -418,7 +418,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <div class="fld"><label>Material</label>
             <select id="t-mat"><option>MDP</option><option>MDF</option><option>Outro</option></select></div>
           <div class="fld"><label>Espessura (mm)</label><input type="number" id="t-esp" min="0" step="1" placeholder="(qualquer)"></div>
-          <div class="fld"><label>Cor</label><input type="color" id="t-cor" class="cor-in"></div>
+          <div class="fld"><label>Cor</label><select id="t-cor" class="cell-sel"></select></div>
           <button class="btn2" id="btn-add-tabua">Adicionar tábua</button>
         </div>
         <div class="tbl-wrap"><table id="tbl-tabuas"></table></div>
@@ -647,19 +647,49 @@ function sugTabua(row){
   }
   return best? best.t : ord[ord.length-1];
 }
-// cor de identificação de cada medida de tábua (o usuário pode trocar em ⚙ Cadastros)
-const PALETA_TABUA=["#4FC3F7","#81C784","#FFD54F","#FF8A65","#BA68C8","#4DB6AC","#F06292","#A1887F","#9575CD","#AED581","#64B5F6","#DCE775"];
-function corPadraoTabua(i){ return PALETA_TABUA[((i||0)%PALETA_TABUA.length+PALETA_TABUA.length)%PALETA_TABUA.length]; }
-function corTabua(comp,larg){
+// cor de identificação de cada medida de tábua — cores simples, de pintar a borda mesmo
+const CORES_TABUA=[
+  {n:"Azul",     h:"#1565C0"}, {n:"Verde",   h:"#2E7D32"}, {n:"Vermelho", h:"#C62828"},
+  {n:"Amarelo",  h:"#F9A825"}, {n:"Laranja", h:"#EF6C00"}, {n:"Roxo",     h:"#6A1B9A"},
+  {n:"Rosa",     h:"#D81B60"}, {n:"Marrom",  h:"#6D4C41"}, {n:"Preto",    h:"#111111"},
+  {n:"Branco",   h:"#FFFFFF"}, {n:"Cinza",   h:"#757575"},
+];
+function corPadraoTabua(i){ const c=CORES_TABUA[((i||0)%CORES_TABUA.length+CORES_TABUA.length)%CORES_TABUA.length]; return c.n; }
+function corInfo(nome){
+  const c=CORES_TABUA.find(x=>x.n===nome);
+  if(c) return c;
+  if(typeof nome==="string" && nome[0]==="#") return {n:"", h:nome};   // cadastros antigos (hex)
+  return {n:"—", h:"#757575"};
+}
+// nome e hex da cor de uma medida de tábua
+function corDaTabua(comp,larg){
   const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
   const i=ord.findIndex(x=>+x.comp===+comp && (larg==null||+x.larg===+larg));
-  if(i<0) return "#9e9e9e";
-  return ord[i].cor || corPadraoTabua(i);
+  if(i<0) return {n:"—", h:"#757575"};
+  return corInfo(ord[i].cor || corPadraoTabua(i));
 }
-// quadradinho da cor, p/ tabelas e legendas
-function corChip(comp,larg,extra){
+function corTabua(comp,larg){ return corDaTabua(comp,larg).h; }
+// luminância, p/ escolher um texto legível quando a cor é muito clara (branco) ou muito escura (preto)
+function lumCor(h){
+  const m=/^#?([0-9a-fA-F]{6})$/.exec(h||""); if(!m) return .5;
+  const n=parseInt(m[1],16), r=(n>>16&255)/255, g=(n>>8&255)/255, b=(n&255)/255;
+  return .2126*r+.7152*g+.0722*b;
+}
+function corLegivel(h, claro){
+  const L=lumCor(h);
+  if(claro) return L>.72? "#555" : h;      // no papel, cor clara demais vira cinza escuro
+  return L<.22? "#b9b9b9" : h;             // na tela escura, cor escura demais vira cinza claro
+}
+function nomeCorTabua(comp,larg){ return corDaTabua(comp,larg).n; }
+// quadradinho + nome da cor, p/ tabelas e legendas
+function corChip(comp,larg){
+  const c=corDaTabua(comp,larg);
   return `<span style="display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;
-    margin-right:7px;background:${corTabua(comp,larg)};border:1px solid rgba(0,0,0,.25)${extra||""}"></span>`;
+    margin-right:7px;background:${c.h};border:1px solid rgba(128,128,128,.6)"></span>`;
+}
+function corChipNome(comp,larg){
+  const c=corDaTabua(comp,larg);
+  return corChip(comp,larg)+(c.n&&c.n!=="—"?`<b>${esc(c.n)}</b>`:"—");
 }
 const ALTURA_PADRAO = 1350;   // usada só se surgir uma espessura ainda não cadastrada
 // altura da pilha para uma espessura (vem do cadastro por espessura)
@@ -857,14 +887,17 @@ function renderParams(){
   }));
 }
 function renderTabuas(){
-  const tc=document.getElementById("t-cor"); if(tc && !tc.dataset.tocado) tc.value=corPadraoTabua(TABUAS.length);
+  const tc=document.getElementById("t-cor");
+  if(tc){ const atual=tc.value; tc.innerHTML=CORES_TABUA.map(c=>`<option value="${c.n}">${c.n}</option>`).join("");
+    tc.value=atual||corPadraoTabua(TABUAS.length); }
   const t=document.getElementById("tbl-tabuas");
   let h="<thead><tr><th class='l'>Cor</th><th class='l'>Comprimento (mm)</th><th class='l'>Largura (mm)</th><th class='l'>Material</th><th class='l'>Espessura (mm)</th><th style='width:44px'></th></tr></thead><tbody>";
   const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
   const matOpt=(sel)=>["MDP","MDF","Outro"].map(m=>`<option ${sel===m?"selected":""}>${m}</option>`).join("");
   ord.forEach((tb,i)=>{
     h+=`<tr>
-      <td class='l'><input type='color' class='cor-in' data-tb-cor='${tb.id}' value='${tb.cor||corPadraoTabua(i)}' title='cor de identificação desta medida'></td>
+      <td class='l'>${corChip(tb.comp,tb.larg)}<select class='cell-sel' data-tb-cor='${tb.id}' title='cor para pintar a borda desta medida'>${
+        CORES_TABUA.map(c=>`<option value="${c.n}" ${ (tb.cor||corPadraoTabua(i))===c.n?"selected":""}>${c.n}</option>`).join("")}</select></td>
       <td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-tb-comp='${tb.id}' value='${tb.comp}'></td>
       <td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-tb-larg='${tb.id}' value='${tb.larg}'></td>
       <td class='l'><select class='cell-sel' data-tb-mat='${tb.id}'>${matOpt(tb.material||"MDP")}</select></td>
@@ -878,9 +911,9 @@ function renderTabuas(){
   t.querySelectorAll("input[data-tb-larg]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbLarg,"larg",+e.target.value||1)));
   t.querySelectorAll("select[data-tb-mat]").forEach(s=>s.addEventListener("change",e=>upd(e.target.dataset.tbMat,"material",e.target.value)));
   t.querySelectorAll("input[data-tb-esp]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbEsp,"esp",+e.target.value||null)));
-  t.querySelectorAll("input[data-tb-cor]").forEach(i=>i.addEventListener("input",e=>{
+  t.querySelectorAll("select[data-tb-cor]").forEach(i=>i.addEventListener("change",e=>{
     const tb=TABUAS.find(x=>x.id===e.target.dataset.tbCor); if(!tb) return;
-    tb.cor=e.target.value; save(LS_TABUAS,TABUAS); renderSim(); renderKpis();
+    tb.cor=e.target.value; save(LS_TABUAS,TABUAS); renderTabuas(); renderSim(); renderKpis();
   }));
   t.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{
     TABUAS=TABUAS.filter(x=>x.id!==e.target.dataset.del); save(LS_TABUAS,TABUAS); renderTabuas(); renderSim();
@@ -1125,17 +1158,18 @@ function renderTabuasLote(){
   const tag=document.getElementById("tbl-tag");
   const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
   if(tag) tag.textContent = CUR&&LOTES[CUR] ? (LOTES[CUR].lote+" · "+fmtInt(totT)+" tábua(s) em "+lista.length+" medida(s)") : "";
-  let h="<thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros de esteira</th><th>% do lote</th></tr></thead><tbody>";
+  let h="<thead><tr><th class='l'>Tábua (comp × larg)</th><th class='l'>Cor da borda</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros de esteira</th><th>% do lote</th></tr></thead><tbody>";
   for(const x of lista){
-    h+=`<tr><td class='l mono'>${corChip(x.comp,x.larg)}${x.comp} × ${x.larg}</td>
+    h+=`<tr><td class='l mono'>${x.comp} × ${x.larg}</td>
+      <td class='l'>${corChipNome(x.comp,x.larg)}</td>
       <td class='num'><b>${fmtInt(x.tabuas)}</b></td>
       <td class='num'>${fmtInt(x.itens)}</td>
       <td class='num'>${fmtInt(x.qty)}</td>
       <td class='num'>${fmt(x.O)}</td>
       <td class='num'>${totO>0?fmt(x.O/totO*100)+"%":"—"}</td></tr>`;
   }
-  if(!lista.length) h+="<tr><td class='l' colspan='6' style='color:var(--txt2);padding:14px'>Nenhuma peça neste lote.</td></tr>";
-  else h+=`<tr class='trtot'><td class='l'>Total (${lista.length} medida(s))</td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr>`;
+  if(!lista.length) h+="<tr><td class='l' colspan='7' style='color:var(--txt2);padding:14px'>Nenhuma peça neste lote.</td></tr>";
+  else h+=`<tr class='trtot'><td class='l'>Total (${lista.length} medida(s))</td><td></td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr>`;
   h+="</tbody>"; t.innerHTML=h;
 }
 function renderUnid(){
@@ -1202,7 +1236,7 @@ function lastroSvg(r, c, tema, refMM){
   g+=`<line x1="${xTab}" y1="${yCota-8}" x2="${xFim}" y2="${yCota-8}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xTab}" y1="${yCota-12}" x2="${xTab}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xFim}" y1="${yCota-12}" x2="${xFim}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
-   + `<text x="${((xTab+xFim)/2).toFixed(1)}" y="${yCota-12}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="${cTab}">tábua ${tC} × ${tL} mm</text>`;
+   + `<text x="${((xTab+xFim)/2).toFixed(1)}" y="${yCota-12}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="${corLegivel(cTab,claro)}">tábua ${tC} × ${tL} mm${nomeCorTabua(c.tComp,c.tLarg)&&nomeCorTabua(c.tComp,c.tLarg)!=="—"?" · borda "+nomeCorTabua(c.tComp,c.tLarg).toUpperCase():""}</text>`;
   // tábua
   g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="${cor.tab}" stroke="${cor.tabL}" stroke-width="1"/>`;
   // folga das 2 pontas
@@ -1254,7 +1288,9 @@ function lastroSvg(r, c, tema, refMM){
     if(cima>0.5) g+=faixa(yPc,cima);
     if(baixo>0.5) g+=faixa(TOP+H,baixo);
   }
-  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="none" stroke="${cTab}" stroke-width="2.5"/>`;
+  // aro neutro por baixo + a cor por cima: assim branco aparece no papel e preto aparece na tela
+  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="none" stroke="#8a8a8a" stroke-width="4.5"/>`
+   + `<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="none" stroke="${cTab}" stroke-width="2.5"/>`;
   // sobra na largura — metade em cima, metade embaixo (peças centralizadas)
   const sobraL=Math.max(0, tL-J*pL);
   if(sobraL>0.5 && J>0){
@@ -1464,13 +1500,13 @@ function tabuasTabelaHtml(key, unidIdx){
   const lista=tabuasUsadas(key,unidIdx); if(!lista.length) return "";
   const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
   let r="";
-  for(const x of lista) r+=`<tr><td class='l'>${corChip(x.comp,x.larg)}${x.comp} × ${x.larg}</td><td>${fmtInt(x.tabuas)}</td>`
+  for(const x of lista) r+=`<tr><td class='l'>${x.comp} × ${x.larg}</td><td class='l'>${corChipNome(x.comp,x.larg)}</td><td>${fmtInt(x.tabuas)}</td>`
     +`<td>${fmtInt(x.itens)}</td><td>${fmtInt(x.qty)}</td><td>${fmt(x.O)}</td>`
     +`<td>${totO>0?fmt(x.O/totO*100)+"%":"—"}</td></tr>`;
   return `<div class="rep-ctitle">Tábuas${unidIdx!=null?" desta unidade":" do lote"} — ${fmtInt(totT)} tábua(s) em ${lista.length} medida(s)</div>
     <table class="rep-tbl">
-      <thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros</th><th>%</th></tr></thead>
-      <tbody>${r}<tr class="rep-tot"><td class='l'>Total</td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr></tbody>
+      <thead><tr><th class='l'>Tábua (comp × larg)</th><th class='l'>Cor da borda</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros</th><th>%</th></tr></thead>
+      <tbody>${r}<tr class="rep-tot"><td class='l'>Total</td><td></td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr></tbody>
     </table>`;
 }
 // páginas de desenho do lote para o PDF — uma página por UNIDADE de corte
@@ -1969,7 +2005,7 @@ function loteReportHtml(key, titulo){
     const semMedida=!(r.comp&&r.larg&&r.alt);
     pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
       +`<td>${fmtInt(r.qty)}</td><td>${r.comp??"—"}</td><td>${r.larg??"—"}</td><td>${r.alt??"—"}</td>`
-      +`<td class='l'>${corChip(c.tComp,c.tLarg)}${c.tComp}×${c.tLarg}</td><td class='l'>${c.virada?"virada ↻":"em pé"}${c.excesso>0.5?` <span style="color:#e65100">+${Math.round(c.excesso)}</span>`:""}</td><td class='l'>${esc(uNome)}</td>`
+      +`<td class='l'>${corChip(c.tComp,c.tLarg)}${c.tComp}×${c.tLarg} <span style="color:#666">${esc(nomeCorTabua(c.tComp,c.tLarg))}</span></td><td class='l'>${c.virada?"virada ↻":"em pé"}${c.excesso>0.5?` <span style="color:#e65100">+${Math.round(c.excesso)}</span>`:""}</td><td class='l'>${esc(uNome)}</td>`
       +`<td>${fmt(c.I)}</td><td>${fmt(c.J)}</td><td>${fmt(c.K)}</td><td>${fmtInt(c.M)}</td><td>${fmtInt(c.N)}</td><td>${fmt(c.O)}</td></tr>`;
   }
   return `
