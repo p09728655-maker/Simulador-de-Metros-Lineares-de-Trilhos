@@ -20,8 +20,13 @@ na tela e o simulador monta tudo:
 - **Avanço permitido** (⚙ Cadastros, padrão **25 mm de cada lado**):
   - *no comprimento* — a peça avança sobre a folga de segurança (folga 100 − avanço 25 = **75 reais**).
     Ex.: `350×380` na tábua `1200` → `3 × 350 = 1050` cabe, **3 por lastro** em vez de 2.
-  - *na largura* — quanto a peça pode passar da tábua em **cada lado** (padrão **60 mm/lado**).
-    Ex.: `615×420` virada numa tábua de 500 passa 115 mm → **57,5 mm de cada lado**, aceito.
+  - *na largura* — quanto a peça pode passar da tábua em **cada lado** (padrão **60 mm/lado**),
+    limitado ainda pelo **apoio mínimo da peça** (padrão **67%** da largura dela sobre a tábua).
+    Ex.: `615×420` virada numa tábua de 500 passa 115 mm → 57,5 mm de cada lado, apoia 91% → **ok**.
+    Já uma ripa de 48 mm com 38 mm no ar é recusada — a fileira da ponta não teria apoio.
+- **Girar pelo desenho** — cada card tem um seletor `girar:` que aplica o giro a todas as peças
+  daquele arranjo, mostrando **quanto cada orientação consome** (`em pé 14,4 m · virada ↻ 21,6 m`)
+  e a **economia**. No topo, o total do lote e o botão **“Aplicar o melhor giro”**.
 - No desenho as peças ficam **centralizadas na tábua**: a sobra (ou o que passa) é dividida
   igualmente entre os dois lados, nos dois sentidos.
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),

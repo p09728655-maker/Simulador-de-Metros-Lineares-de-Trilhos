@@ -121,6 +121,16 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-card .des-sub{font-family:var(--font-d);font-size:10px;color:var(--txt2);margin:6px 0 0;line-height:1.55}
 .des-card svg{width:100%;height:auto;display:block;margin:8px 0 2px}
 .des-nada{font-family:var(--font-d);font-size:11px;color:var(--txt3);padding:10px 0}
+.des-giro{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;
+  font-family:var(--font-d);font-size:10px;color:var(--txt2)}
+.des-giro label{display:flex;align-items:center;gap:6px}
+.des-eco-cmp{color:var(--txt3)}
+.des-eco{font-weight:600;color:var(--txt3)}
+.des-eco.ok{color:var(--ok)}
+.des-resumo{font-family:var(--font-d);font-size:11px;color:var(--txt2);margin:0 0 12px;
+  background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 14px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.des-resumo b{color:var(--ok)}
 .top-actions .linkbtn.destaque{border-color:rgba(255,92,31,.55);color:var(--acc)}
 .top-actions .linkbtn.destaque:hover{background:rgba(255,92,31,.08)}
 
@@ -301,6 +311,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="sec-sub">Como as peças ficam deitadas na tábua — <b>1 exemplo de cada</b> arranjo do lote.
         A faixa cinza de cada ponta é a <b>folga de segurança</b> (⚙ Cadastros) e a faixa listrada no fim é a
         <b>sobra de tábua</b> que não dá pra aproveitar.</div>
+      <div id="des-resumo" class="des-resumo no-print hidden"></div>
       <div id="desenhos" class="des-grid"></div>
     </section>
 
@@ -323,6 +334,10 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <div class="fld">
             <label>Avanço no comprimento (mm/ponta)</label>
             <input type="number" id="p-avanco" min="0" step="5" title="quanto a peça pode avançar sobre a folga em cada ponta (folga 100 − avanço 25 = 75 de folga real)">
+          </div>
+          <div class="fld">
+            <label>Apoio mínimo da peça (%)</label>
+            <input type="number" id="p-apoio" min="0" max="100" step="1" title="quanto da largura da peça precisa ficar apoiada na tábua (o resto pode ficar em balanço)">
           </div>
           <div class="fld">
             <label>Avanço na largura (mm/lado)</label>
@@ -603,6 +618,16 @@ function avancoComp(){ return PARAMS.avancoComp!=null? Math.max(0,+PARAMS.avanco
 // avanço na LARGURA: quanto a peça pode passar da tábua em CADA lado
 function avancoLarg(){ return PARAMS.excLarg!=null? Math.max(0,+PARAMS.excLarg) : AVANCO_LARG_PADRAO; }
 function excLarg(){ return 2*avancoLarg(); }   // total tolerado na largura (os dois lados)
+// a peça da ponta fica apoiada? o balanço de cada lado respeita o limite em mm E a peça
+// precisa manter uma % mínima apoiada na tábua — senão ela fica praticamente no ar
+// (ex.: ripa de 48 mm com 38 mm para fora é impossível de fazer)
+const APOIO_MIN_PADRAO=67;   // % da largura da peça que precisa ficar sobre a tábua
+function apoioMin(){ const v=PARAMS.apoioMin!=null?+PARAMS.apoioMin:APOIO_MIN_PADRAO; return Math.min(100,Math.max(0,v)); }
+function balancoPorLado(J, pl, tLarg){ return Math.max(0, J*pl-(tLarg||0))/2; }
+function apoiaNaTabua(J, pl, tLarg){
+  const bal=balancoPorLado(J,pl,tLarg);
+  return bal<=avancoLarg()+1e-9 && bal<=pl*(1-apoioMin()/100)+1e-9;
+}
 // comprimento aproveitável da tábua: desconta a folga de cada ponta, devolvendo o avanço permitido
 function compUtilDe(tComp){
   const folga=(PARAMS.folga!=null?PARAMS.folga:100);
@@ -614,9 +639,13 @@ function encaixesPossiveis(row, tComp, tLarg, forcado){
   const tenta=(pc,pl,virada)=>{
     if(!pc||!pl||!tLarg) return null;
     let I=Math.floor(compUtil/pc), J=Math.floor((tLarg+exc)/pl);
-    // giro travado na mão: vale a escolha do operador mesmo que a peça passe da tábua
+    // o que passa é dividido entre os 2 lados; a peça da ponta precisa continuar APOIADA:
+    // balanço de cada lado ≤ limite em mm E ≤ metade da peça (senão ela fica no ar)
+    while(J>1 && !apoiaNaTabua(J,pl,tLarg)) J--;
+    // giro travado na mão: vale a escolha do operador mesmo assim
     if(forcado){ I=Math.max(1,I); J=Math.max(1,J); }
     if(I<1||J<1) return null;
+    if(!forcado && !apoiaNaTabua(J,pl,tLarg)) return null;
     return {I,J,K:I*J,comp:pc,larg:pl,virada,excesso:Math.max(0,J*pl-tLarg)};
   };
   return {normal:tenta(row.comp,row.larg,false), virada:tenta(row.larg,row.comp,true)};
@@ -723,6 +752,7 @@ function renderParams(){
   document.getElementById("p-folga").value = (PARAMS.folga!=null?PARAMS.folga:100);
   document.getElementById("p-exc-larg").value = avancoLarg();
   document.getElementById("p-avanco").value = avancoComp();
+  document.getElementById("p-apoio").value = apoioMin();
   const wrap=document.getElementById("unidades-wrap"); wrap.innerHTML="";
   (PARAMS.unidades||[]).forEach((u,i)=>{
     const d=document.createElement("div"); d.className="fld";
@@ -962,7 +992,8 @@ function lastroSvg(r, c, tema){
   const I=Math.max(0,Math.floor(c.I||0)), J=Math.max(0,Math.floor(c.J||0));
   const usadoMM=I*pC, sobraMM=Math.max(0, compUtilDe(tC)-usadoMM);
   // quanto as peças passam da largura da tábua (tolerado até o excesso permitido)
-  const excMM=Math.max(0, J*pL-tL), excede=excMM>0.5, foraTol=excMM>excLarg()+0.5||!c.cabe;
+  const excMM=Math.max(0, J*pL-tL), excede=excMM>0.5;
+  const foraTol=!c.cabe || !apoiaNaTabua(J,pL,tL);   // peça sem apoio suficiente na tábua
   // peças centralizadas na tábua: a sobra (ou o que passa) fica dividida igual dos dois lados
   const larguraPc=J*pL*s, compPc=I*pC*s;
   const sobe=Math.max(0,(larguraPc-H)/2);
@@ -1018,31 +1049,62 @@ function lastroSvg(r, c, tema){
   // cota da largura + avisos (peça virada / quanto passa da tábua)
   g+=t(W, TOP+HD+11, "largura "+tL+" mm", "end", 10)
    + t(0, TOP+HD+11, I+" × "+J+" = "+(I*J)+" peça(s) por lastro"+(c.virada?" · peça VIRADA ↻":"")+(sobraMM>0.5?" · sobra "+Math.round(sobraMM)+" mm":""), "start", 10);
-  if(excede) g+=`<text x="0" y="${TOP+HD+24}" font-family="ui-monospace,monospace" font-size="10" fill="${foraTol?"#c62828":"#e65100"}">${foraTol?"⚠ passa":"passa"} ${Math.round(excMM)} mm da largura da tábua — ${fmt(excMM/2)} mm de cada lado${foraTol?" (permitido: "+avancoLarg()+" mm/lado)":""}</text>`;
+  if(excede){
+    const bal=excMM/2, apoio=Math.max(0,pL-bal);
+    g+=`<text x="0" y="${TOP+HD+24}" font-family="ui-monospace,monospace" font-size="10" fill="${foraTol?"#c62828":"#e65100"}">`
+      +`${foraTol?"⚠ ":""}passa ${Math.round(excMM)} mm da largura — ${fmt(bal)} mm de cada lado `
+      +`(a peça da ponta apoia ${fmt(apoio)} dos ${pL} mm${foraTol?" — sem apoio suficiente":""})</text>`;
+  }
   return `<svg viewBox="0 0 ${W} ${TOP+HD+BOT+(excede?14:0)}" preserveAspectRatio="xMidYMid meet" role="img">${g}</svg>`;
 }
 // agrupa as peças do lote por arranjo igual (mesma tábua + mesma peça + mesmo encaixe) → "1 exemplo de cada"
 function arranjosDoLote(key){
   const lt=LOTES[key]; if(!lt) return [];
   const map=new Map();
-  for(const r of lt.rows){
-    if(!(r.comp&&r.larg&&r.alt)) continue;
+  lt.rows.forEach((r,idx)=>{
+    if(!(r.comp&&r.larg&&r.alt)) return;
     const c=calcRow(r);
     const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}`;
     const hit=map.get(k);
-    if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); }
-    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod]});
+    if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); hit.idxs.push(idx); }
+    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx]});
+  });
+  // metros de esteira que o arranjo consome em cada orientação (p/ mostrar a economia do giro)
+  const arr=[...map.values()];
+  for(const a of arr){
+    a.oNormal=0; a.oVirada=0;
+    for(const i of a.idxs){
+      const row=lt.rows[i];
+      a.oNormal += calcRow({...row, giro:"normal", I:null, J:null}).O;
+      a.oVirada += calcRow({...row, giro:"virada", I:null, J:null}).O;
+    }
+    a.oMelhor=Math.min(a.oNormal,a.oVirada);
+    a.economia=a.O-a.oMelhor;                       // quanto ainda dá pra economizar neste arranjo
+    a.melhorGiro=a.oVirada<a.oNormal?"virada":"normal";
   }
-  return [...map.values()].sort((a,b)=>b.O-a.O);
+  return arr.sort((a,b)=>b.O-a.O);
 }
-function desenhoCardHtml(a, tema){
+function desenhoCardHtml(a, tema, ai){
   const {r,c}=a;
   const svg=lastroSvg(r,c,tema);
   if(!svg) return "";
   const outros=a.cods.length>1?` <span style="opacity:.7">(+${a.cods.length-1} peça(s) com o mesmo arranjo)</span>`:"";
   const cam=camadasFor(r.alt);
+  // na tela dá pra girar a peça direto no desenho (vale p/ todas as peças do arranjo)
+  const eco = a.economia>0.005
+    ? `<span class="des-eco ok">girando ↻ economiza ${fmt(a.economia)} m</span>`
+    : `<span class="des-eco">melhor giro já aplicado</span>`;
+  const giro = tema==="print" ? "" :
+    `<div class="des-giro no-print">
+      <label>girar:
+        <select class="cell-sel" data-giro-arr="${ai}" title="Aplica a todas as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
+      </label>
+      <span class="des-eco-cmp">em pé ${fmt(a.oNormal)} m · virada ↻ ${fmt(a.oVirada)} m</span>
+      ${eco}
+    </div>`;
   return `<div class="${tema==="print"?"des-box":"des-card"}">
     <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}</div>
+    ${giro}
     ${svg}
     <div class="des-sub">Peça ${r.comp}×${r.larg}×${r.alt} mm · tábua ${c.tComp}×${c.tLarg} mm ·
       ${c.virada?`<b style="color:#e65100">virada ↻</b> (${c.pcComp}×${c.pcLarg} no lastro) · `:""}
@@ -1058,8 +1120,35 @@ function renderDesenhos(){
   const arr=CUR?arranjosDoLote(CUR):[];
   const tag=document.getElementById("des-tag");
   if(tag) tag.textContent = lt? (lt.lote+" · "+arr.length+" arranjo(s)") : "";
-  box.innerHTML = arr.length? arr.map(a=>desenhoCardHtml(a,"screen")).join("")
+  // resumo: quanto o lote ainda economiza se cada arranjo usar o melhor giro
+  const resumo=document.getElementById("des-resumo");
+  const ecoTot=arr.reduce((s,a)=>s+Math.max(0,a.economia),0);
+  const atual=arr.reduce((s,a)=>s+a.O,0);
+  if(resumo){
+    resumo.classList.toggle("hidden", !(ecoTot>0.005));
+    if(ecoTot>0.005) resumo.innerHTML=
+      `Girando as peças marcadas, este lote economiza <b>${fmt(ecoTot)} m</b> de esteira `
+      +`(${fmt(atual)} m → ${fmt(atual-ecoTot)} m).`
+      +`<button class="btn2 no-print" id="btn-melhor-giro">Aplicar o melhor giro</button>`;
+  }
+  box.innerHTML = arr.length? arr.map((a,i)=>desenhoCardHtml(a,"screen",i)).join("")
     : `<div class="des-nada">Nenhuma peça com medida completa neste lote — sem desenho.</div>`;
+  const btn=document.getElementById("btn-melhor-giro");
+  if(btn) btn.addEventListener("click",()=>{
+    for(const a of arr){
+      if(!(a.economia>0.005)) continue;
+      for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+        row.giro=a.melhorGiro; row.I=null; row.J=null; }
+    }
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+  });
+  // girar pelo desenho: aplica o giro a todas as peças daquele arranjo
+  box.querySelectorAll("select[data-giro-arr]").forEach(s=>s.addEventListener("change",e=>{
+    const a=arr[+e.target.dataset.giroArr]; if(!a) return;
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+      row.giro=e.target.value; row.I=null; row.J=null; }
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+  }));
 }
 // página de desenhos do lote para o PDF
 function desenhoPageHtml(key){
@@ -1351,6 +1440,10 @@ document.getElementById("p-exc-larg").addEventListener("change",e=>{
 });
 document.getElementById("p-avanco").addEventListener("change",e=>{
   PARAMS.avancoComp=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS);
+  renderParams(); renderAll();
+});
+document.getElementById("p-apoio").addEventListener("change",e=>{
+  PARAMS.apoioMin=Math.min(100,Math.max(0,+e.target.value||0)); save(LS_PARAMS,PARAMS);
   renderParams(); renderAll();
 });
 document.getElementById("btn-add-altura").addEventListener("click",()=>{
