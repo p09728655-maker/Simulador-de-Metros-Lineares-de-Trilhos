@@ -59,6 +59,10 @@ na tela e o simulador monta tudo:
 - **Parâmetros** — altura da pilha (padrão 1200 mm) e o **trilho disponível por unidade**
   (ex.: Unidade I = 116 m, Unidade II = 40 m → 156 m), usados para a **% de ocupação**.
 - **GERAL** — consolida todos os lotes importados (necessidade × disponível × ocupação).
+- **Aba “🖼 Desenhos”** — os desenhos e a lista de tábuas do lote ganharam tela própria, para não
+  rolar o Simulador inteiro. A barra de ocupação acompanha em todas as telas.
+- **Cor por medida de tábua** — cada medida tem uma cor (editável em ⚙ Cadastros, ex.: 910 azul,
+  1500 verde). A cor aparece no desenho, na tabela do lote, na coluna Tábua e **sai nos relatórios**.
 - **Desenho do lastro** — mostra **como as peças ficam deitadas na tábua**, vista de cima: a folga de
   segurança de cada ponta, as peças encaixadas (`I × J`) e a **sobra de tábua**. Sai **1 exemplo de cada
   arranjo** do lote (peças com a mesma tábua + mesma medida + mesmo encaixe entram no mesmo desenho) e

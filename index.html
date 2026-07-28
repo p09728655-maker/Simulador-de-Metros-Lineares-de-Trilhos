@@ -144,6 +144,7 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-card .des-sub{font-family:var(--font-d);font-size:10px;color:var(--txt2);margin:6px 0 0;line-height:1.55}
 .des-card svg{width:100%;height:auto;display:block;margin:8px 0 2px}
 .des-nada{font-family:var(--font-d);font-size:11px;color:var(--txt3);padding:10px 0}
+.cor-in{width:44px;height:26px;padding:0;border:.5px solid var(--border);border-radius:5px;background:var(--bg);cursor:pointer}
 .des-giro{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;
   font-family:var(--font-d);font-size:10px;color:var(--txt2)}
 .des-giro label{display:flex;align-items:center;gap:6px}
@@ -232,15 +233,15 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   main{max-width:100% !important;padding:0 !important}
   .print-only{display:block}
   /* modo relatório consolidado: imprime só o relatório */
-  body.printing-cons #view-sim, body.printing-cons #view-cad, body.printing-cons #view-cons, body.printing-cons #view-comp{display:none !important}
+  body.printing-cons #view-sim, body.printing-cons #view-des, body.printing-cons #view-cad, body.printing-cons #view-cons, body.printing-cons #view-comp{display:none !important}
   body.printing-cons #report-consolidado{display:block !important}
   /* modo relatório de comparação: imprime só o relatório */
-  body.printing-comp #view-sim, body.printing-comp #view-cad, body.printing-comp #view-cons, body.printing-comp #view-comp{display:none !important}
+  body.printing-comp #view-sim, body.printing-comp #view-des, body.printing-comp #view-cad, body.printing-comp #view-cons, body.printing-comp #view-comp{display:none !important}
   body.printing-comp #report-comparativo{display:block !important}
   /* modo "todos os lotes" (um lote por página) e comparação de todos os lotes */
-  body.printing-todos #view-sim, body.printing-todos #view-cad, body.printing-todos #view-cons, body.printing-todos #view-comp{display:none !important}
+  body.printing-todos #view-sim, body.printing-todos #view-des, body.printing-todos #view-cad, body.printing-todos #view-cons, body.printing-todos #view-comp{display:none !important}
   body.printing-todos #report-todos{display:block !important}
-  body.printing-comp-todos #view-sim, body.printing-comp-todos #view-cad, body.printing-comp-todos #view-cons, body.printing-comp-todos #view-comp{display:none !important}
+  body.printing-comp-todos #view-sim, body.printing-comp-todos #view-des, body.printing-comp-todos #view-cad, body.printing-comp-todos #view-cons, body.printing-comp-todos #view-comp{display:none !important}
   body.printing-comp-todos #report-comp-todos{display:block !important}
   h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
   .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
@@ -250,6 +251,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   .trtot td{background:#eee !important;color:#111 !important}
   .cell-in,select.cell-sel{border:none !important;background:transparent !important;color:#111 !important}
   .kpi{border:1px solid #bbb} .kpi::before{display:none} .kpi .val{color:#111}
+  span[style*="border-radius:3px"]{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print-report td span, .print-report .des-box{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 </style>
 </head>
@@ -260,6 +263,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <div class="hdr-setor">Metros lineares de corte · Patrimar</div>
   <nav class="hdr-nav">
     <button id="nav-sim" class="navbtn active">Simulador</button>
+    <button id="nav-des" class="navbtn">🖼 Desenhos</button>
     <button id="nav-comp" class="navbtn">📐 Comparar tábuas</button>
     <button id="nav-cons" class="navbtn">📊 Consolidado</button>
     <button id="nav-cad" class="navbtn">⚙ Cadastros</button>
@@ -271,6 +275,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 </header>
 
 <main>
+  <div id="hud" class="hud no-print"></div>
   <!-- ===================== VIEW: SIMULADOR ===================== -->
   <div id="view-sim">
   <!-- Empty state -->
@@ -297,8 +302,6 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <button class="linkbtn no-print" id="btn-novo">+ Importar outro PDF</button>
       <button class="linkbtn no-print" id="btn-del-lote" style="margin-left:auto">Remover este lote</button>
     </div>
-
-    <div id="hud" class="hud no-print"></div>
 
     <div class="top-actions no-print">
       <button class="linkbtn" id="btn-pdf">🖨️ Relatório deste lote (PDF)</button>
@@ -331,7 +334,19 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="tbl-wrap"><table id="tbl-sim"></table></div>
     </section>
 
-    <!-- Desenho do lastro -->
+
+  </div><!-- /#painel -->
+  </div><!-- /#view-sim -->
+
+  <!-- ===================== VIEW: DESENHOS ===================== -->
+  <div id="view-des" class="hidden">
+    <div id="des-vazio" class="sec-sub" style="margin:24px 0">Importe um lote no <b>Simulador</b> para ver os desenhos.</div>
+    <div id="des-wrap" class="hidden">
+      <div class="top-actions no-print">
+        <label style="font-family:var(--font-d);font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:6px">Lote:
+          <select id="des-lote-sel" class="cell-sel"></select>
+        </label>
+      </div>
     <!-- Tábuas que o lote vai consumir -->
     <section id="sec-tabuas-lote">
       <h2>Tábuas do lote <span class="tag" id="tbl-tag"></span></h2>
@@ -353,9 +368,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div id="des-resumo" class="des-resumo no-print hidden"></div>
       <div id="desenhos" class="des-grid"></div>
     </section>
-
-  </div><!-- /#painel -->
-  </div><!-- /#view-sim -->
+    </div>
+  </div><!-- /#view-des -->
 
   <!-- ===================== VIEW: CADASTROS ===================== -->
   <div id="view-cad" class="hidden">
@@ -404,6 +418,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <div class="fld"><label>Material</label>
             <select id="t-mat"><option>MDP</option><option>MDF</option><option>Outro</option></select></div>
           <div class="fld"><label>Espessura (mm)</label><input type="number" id="t-esp" min="0" step="1" placeholder="(qualquer)"></div>
+          <div class="fld"><label>Cor</label><input type="color" id="t-cor" class="cor-in"></div>
           <button class="btn2" id="btn-add-tabua">Adicionar tábua</button>
         </div>
         <div class="tbl-wrap"><table id="tbl-tabuas"></table></div>
@@ -632,6 +647,20 @@ function sugTabua(row){
   }
   return best? best.t : ord[ord.length-1];
 }
+// cor de identificação de cada medida de tábua (o usuário pode trocar em ⚙ Cadastros)
+const PALETA_TABUA=["#4FC3F7","#81C784","#FFD54F","#FF8A65","#BA68C8","#4DB6AC","#F06292","#A1887F","#9575CD","#AED581","#64B5F6","#DCE775"];
+function corPadraoTabua(i){ return PALETA_TABUA[((i||0)%PALETA_TABUA.length+PALETA_TABUA.length)%PALETA_TABUA.length]; }
+function corTabua(comp,larg){
+  const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
+  const i=ord.findIndex(x=>+x.comp===+comp && (larg==null||+x.larg===+larg));
+  if(i<0) return "#9e9e9e";
+  return ord[i].cor || corPadraoTabua(i);
+}
+// quadradinho da cor, p/ tabelas e legendas
+function corChip(comp,larg,extra){
+  return `<span style="display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;
+    margin-right:7px;background:${corTabua(comp,larg)};border:1px solid rgba(0,0,0,.25)${extra||""}"></span>`;
+}
 const ALTURA_PADRAO = 1350;   // usada só se surgir uma espessura ainda não cadastrada
 // altura da pilha para uma espessura (vem do cadastro por espessura)
 function alturaParaEsp(esp){
@@ -828,25 +857,31 @@ function renderParams(){
   }));
 }
 function renderTabuas(){
+  const tc=document.getElementById("t-cor"); if(tc && !tc.dataset.tocado) tc.value=corPadraoTabua(TABUAS.length);
   const t=document.getElementById("tbl-tabuas");
-  let h="<thead><tr><th class='l'>Comprimento (mm)</th><th class='l'>Largura (mm)</th><th class='l'>Material</th><th class='l'>Espessura (mm)</th><th style='width:44px'></th></tr></thead><tbody>";
+  let h="<thead><tr><th class='l'>Cor</th><th class='l'>Comprimento (mm)</th><th class='l'>Largura (mm)</th><th class='l'>Material</th><th class='l'>Espessura (mm)</th><th style='width:44px'></th></tr></thead><tbody>";
   const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
   const matOpt=(sel)=>["MDP","MDF","Outro"].map(m=>`<option ${sel===m?"selected":""}>${m}</option>`).join("");
-  for(const tb of ord){
+  ord.forEach((tb,i)=>{
     h+=`<tr>
+      <td class='l'><input type='color' class='cor-in' data-tb-cor='${tb.id}' value='${tb.cor||corPadraoTabua(i)}' title='cor de identificação desta medida'></td>
       <td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-tb-comp='${tb.id}' value='${tb.comp}'></td>
       <td class='l'><input class='cell-in' style='width:90px' type='number' min='1' step='10' data-tb-larg='${tb.id}' value='${tb.larg}'></td>
       <td class='l'><select class='cell-sel' data-tb-mat='${tb.id}'>${matOpt(tb.material||"MDP")}</select></td>
       <td class='l'><input class='cell-in' style='width:90px' type='number' min='0' step='1' data-tb-esp='${tb.id}' value='${tb.esp!=null?tb.esp:""}' placeholder='qualquer'></td>
       <td class='l'><button class='iconbtn' data-del='${tb.id}' title='remover'>🗑</button></td></tr>`;
-  }
-  if(!ord.length) h+="<tr><td class='l' colspan='5' style='color:var(--txt2);padding:14px'>Nenhuma tábua cadastrada — adicione acima.</td></tr>";
+  });
+  if(!ord.length) h+="<tr><td class='l' colspan='6' style='color:var(--txt2);padding:14px'>Nenhuma tábua cadastrada — adicione acima.</td></tr>";
   h+="</tbody>"; t.innerHTML=h;
   const upd=(id,campo,val)=>{ const tb=TABUAS.find(x=>x.id===id); if(!tb) return; tb[campo]=val; save(LS_TABUAS,TABUAS); renderSim(); renderKpis&&renderKpis(); };
   t.querySelectorAll("input[data-tb-comp]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbComp,"comp",+e.target.value||1)));
   t.querySelectorAll("input[data-tb-larg]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbLarg,"larg",+e.target.value||1)));
   t.querySelectorAll("select[data-tb-mat]").forEach(s=>s.addEventListener("change",e=>upd(e.target.dataset.tbMat,"material",e.target.value)));
   t.querySelectorAll("input[data-tb-esp]").forEach(i=>i.addEventListener("change",e=>upd(e.target.dataset.tbEsp,"esp",+e.target.value||null)));
+  t.querySelectorAll("input[data-tb-cor]").forEach(i=>i.addEventListener("input",e=>{
+    const tb=TABUAS.find(x=>x.id===e.target.dataset.tbCor); if(!tb) return;
+    tb.cor=e.target.value; save(LS_TABUAS,TABUAS); renderSim(); renderKpis();
+  }));
   t.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{
     TABUAS=TABUAS.filter(x=>x.id!==e.target.dataset.del); save(LS_TABUAS,TABUAS); renderTabuas(); renderSim();
   }));
@@ -989,7 +1024,7 @@ function renderSim(){
       <td class='num ${dimOk?"":"zero"}'>${r.larg??"—"}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.alt??"—"}</td>
       <td class='calc' title='comprimento mínimo de tábua que esta peça precisa (peça + folga das 2 pontas)'>${c.sug}</td>
-      <td class='l'><select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
+      <td class='l'>${corChip(c.tComp,c.tLarg)}<select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
       <td class='l'><select class='cell-sel' data-giro='${idx}' title='Como a peça entra no lastro. Auto testa em pé e virada e fica com a que rende mais.'>${giroOptions(r,c,true)}</select></td>
       <td class='l'><select class='cell-sel' data-unid-in='${idx}' title='${esc(r.material||"")}'>${unidadeOptions(resolveUnidadeIdx(r))}</select></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
@@ -1092,7 +1127,7 @@ function renderTabuasLote(){
   if(tag) tag.textContent = CUR&&LOTES[CUR] ? (LOTES[CUR].lote+" · "+fmtInt(totT)+" tábua(s) em "+lista.length+" medida(s)") : "";
   let h="<thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros de esteira</th><th>% do lote</th></tr></thead><tbody>";
   for(const x of lista){
-    h+=`<tr><td class='l mono'>${x.comp} × ${x.larg}</td>
+    h+=`<tr><td class='l mono'>${corChip(x.comp,x.larg)}${x.comp} × ${x.larg}</td>
       <td class='num'><b>${fmtInt(x.tabuas)}</b></td>
       <td class='num'>${fmtInt(x.itens)}</td>
       <td class='num'>${fmtInt(x.qty)}</td>
@@ -1127,9 +1162,10 @@ function renderUnid(){
 // SVG da tábua vista de cima: folga nas 2 pontas, as peças encaixadas (I × J) e a sobra
 function lastroSvg(r, c, tema, refMM){
   const claro = tema==="print";
+  const cTab = corTabua(c.tComp,c.tLarg);           // cor de identificação da medida
   const cor = claro
-    ? {tab:"#ffffff",tabL:"#999",folga:"#ececec",folgaL:"#aaa",pc:"#ffe2d4",pcL:"#FF5C1F",txt:"#444",cota:"#777",sobra:"#f4f4f4"}
-    : {tab:"#141414",tabL:"#5a5a5a",folga:"#242424",folgaL:"#6a6a6a",pc:"rgba(255,92,31,.26)",pcL:"#FF5C1F",txt:"#b9b9b9",cota:"#8a8a8a",sobra:"#1b1b1b"};
+    ? {tab:cTab+"1f",tabL:cTab,folga:"#ececec",folgaL:"#aaa",pc:"#ffe2d4",pcL:"#FF5C1F",txt:"#444",cota:"#777",sobra:"#f4f4f4"}
+    : {tab:cTab+"1f",tabL:cTab,folga:"#242424",folgaL:"#6a6a6a",pc:"rgba(255,92,31,.26)",pcL:"#FF5C1F",txt:"#b9b9b9",cota:"#8a8a8a",sobra:"#1b1b1b"};
   const folga=(PARAMS.folga!=null?PARAMS.folga:100);
   const folgaEf=(c.folgaEf!=null?c.folgaEf:Math.max(0,folga-avancoComp()));   // a peça pode avançar sobre a folga
   const tC=+c.tComp||0, tL=+c.tLarg||0;
@@ -1166,7 +1202,7 @@ function lastroSvg(r, c, tema, refMM){
   g+=`<line x1="${xTab}" y1="${yCota-8}" x2="${xFim}" y2="${yCota-8}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xTab}" y1="${yCota-12}" x2="${xTab}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xFim}" y1="${yCota-12}" x2="${xFim}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
-   + t((xTab+xFim)/2, yCota-12, "comprimento da tábua "+tC+" mm");
+   + `<text x="${((xTab+xFim)/2).toFixed(1)}" y="${yCota-12}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" font-weight="700" fill="${cTab}">tábua ${tC} × ${tL} mm</text>`;
   // tábua
   g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="${cor.tab}" stroke="${cor.tabL}" stroke-width="1"/>`;
   // folga das 2 pontas
@@ -1218,7 +1254,7 @@ function lastroSvg(r, c, tema, refMM){
     if(cima>0.5) g+=faixa(yPc,cima);
     if(baixo>0.5) g+=faixa(TOP+H,baixo);
   }
-  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="none" stroke="${claro?"#444":"#b9b9b9"}" stroke-width="2"/>`;
+  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="none" stroke="${cTab}" stroke-width="2.5"/>`;
   // sobra na largura — metade em cima, metade embaixo (peças centralizadas)
   const sobraL=Math.max(0, tL-J*pL);
   if(sobraL>0.5 && J>0){
@@ -1313,7 +1349,7 @@ function desenhoCardHtml(a, tema, ai, refMM){
       <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento: cheia (${folgaBase()} mm) ou reduzida pelo avanço de ${avancoComp()} mm">${folgaOptions(r,c)}</select>
       ${eco}
     </div>`;
-  return `<div class="${tema==="print"?"des-box":"des-card"}">
+  return `<div class="${tema==="print"?"des-box":"des-card"}" style="border-left:4px solid ${corTabua(c.tComp,c.tLarg)}">
     <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}
       <span class="des-unid">${esc(a.unidNome)}</span></div>
     ${giro}
@@ -1323,7 +1359,17 @@ function desenhoCardHtml(a, tema, ai, refMM){
       <b>${fmt(a.O)} m</b> de esteira</div>
   </div>`;
 }
+function renderDesLoteSel(){
+  const sel=document.getElementById("des-lote-sel"); if(!sel) return;
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
+}
 function renderDesenhos(){
+  // estado vazio x com lote
+  const temLote=!!LOTES[CUR];
+  const vaz=document.getElementById("des-vazio"), wrap=document.getElementById("des-wrap");
+  if(vaz) vaz.classList.toggle("hidden", temLote);
+  if(wrap) wrap.classList.toggle("hidden", !temLote);
   const box=document.getElementById("desenhos"); if(!box) return;
   const lt=LOTES[CUR];
   const arr=CUR?arranjosDoLote(CUR):[];
@@ -1418,7 +1464,7 @@ function tabuasTabelaHtml(key, unidIdx){
   const lista=tabuasUsadas(key,unidIdx); if(!lista.length) return "";
   const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
   let r="";
-  for(const x of lista) r+=`<tr><td class='l'>${x.comp} × ${x.larg}</td><td>${fmtInt(x.tabuas)}</td>`
+  for(const x of lista) r+=`<tr><td class='l'>${corChip(x.comp,x.larg)}${x.comp} × ${x.larg}</td><td>${fmtInt(x.tabuas)}</td>`
     +`<td>${fmtInt(x.itens)}</td><td>${fmtInt(x.qty)}</td><td>${fmt(x.O)}</td>`
     +`<td>${totO>0?fmt(x.O/totO*100)+"%":"—"}</td></tr>`;
   return `<div class="rep-ctitle">Tábuas${unidIdx!=null?" desta unidade":" do lote"} — ${fmtInt(totT)} tábua(s) em ${lista.length} medida(s)</div>
@@ -1627,7 +1673,7 @@ function renderGeralUnid(){
 }
 function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
 
-function renderAll(){ renderKpis(); renderUnid(); renderCompLoteSel(); renderComparativo(); renderSim(); renderConsView(); }
+function renderAll(){ renderKpis(); renderUnid(); renderCompLoteSel(); renderDesLoteSel(); renderComparativo(); renderSim(); renderConsView(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -1764,6 +1810,7 @@ document.getElementById("btn-add-unid").addEventListener("click",()=>{
 
 // comparar tábuas: troca de lote na tela dedicada
 document.getElementById("comp-lote-sel").addEventListener("change",e=>{ CUR=e.target.value; renderParams(); renderAll(); });
+document.getElementById("des-lote-sel").addEventListener("change",e=>{ CUR=e.target.value; renderParams(); renderAll(); renderDesLoteSel(); });
 // comparar tábuas: parâmetros da sugestão (folga + passo) e aplicar
 document.getElementById("p-folga-sug").addEventListener("change",e=>{
   PARAMS.folgaSug=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS); renderComparativo();
@@ -1792,7 +1839,8 @@ document.getElementById("btn-add-tabua").addEventListener("click",()=>{
   const comp=+document.getElementById("t-comp").value, larg=+document.getElementById("t-larg").value;
   const material=document.getElementById("t-mat").value, esp=+document.getElementById("t-esp").value||null;
   if(!comp||!larg){ alert("Informe comprimento e largura da tábua."); return; }
-  TABUAS.push({id:uid(), comp, larg, material, esp}); save(LS_TABUAS,TABUAS);
+  const cor=(document.getElementById("t-cor")||{}).value || corPadraoTabua(TABUAS.length);
+  TABUAS.push({id:uid(), comp, larg, material, esp, cor}); save(LS_TABUAS,TABUAS);
   document.getElementById("t-comp").value=""; document.getElementById("t-larg").value=""; document.getElementById("t-esp").value="";
   renderTabuas(); renderSim(); renderKpis(); renderComparativo(); renderGeral();
 });
@@ -1921,7 +1969,7 @@ function loteReportHtml(key, titulo){
     const semMedida=!(r.comp&&r.larg&&r.alt);
     pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
       +`<td>${fmtInt(r.qty)}</td><td>${r.comp??"—"}</td><td>${r.larg??"—"}</td><td>${r.alt??"—"}</td>`
-      +`<td>${c.tComp}×${c.tLarg}</td><td class='l'>${c.virada?"virada ↻":"em pé"}${c.excesso>0.5?` <span style="color:#e65100">+${Math.round(c.excesso)}</span>`:""}</td><td class='l'>${esc(uNome)}</td>`
+      +`<td class='l'>${corChip(c.tComp,c.tLarg)}${c.tComp}×${c.tLarg}</td><td class='l'>${c.virada?"virada ↻":"em pé"}${c.excesso>0.5?` <span style="color:#e65100">+${Math.round(c.excesso)}</span>`:""}</td><td class='l'>${esc(uNome)}</td>`
       +`<td>${fmt(c.I)}</td><td>${fmt(c.J)}</td><td>${fmt(c.K)}</td><td>${fmtInt(c.M)}</td><td>${fmtInt(c.N)}</td><td>${fmt(c.O)}</td></tr>`;
   }
   return `
@@ -2090,18 +2138,20 @@ document.getElementById("btn-pdf").addEventListener("click",()=>{
 
 /* navegação entre telas Simulador / Cadastros */
 function setView(v){
-  ["sim","comp","cons","cad"].forEach(x=>{
+  ["sim","des","comp","cons","cad"].forEach(x=>{
     const view=document.getElementById("view-"+x), nav=document.getElementById("nav-"+x);
     if(view) view.classList.toggle("hidden", x!==v);
     if(nav) nav.classList.toggle("active", x===v);
   });
   // telas de tabela larga usam a tela inteira (sem a faixa preta nas laterais)
-  document.body.classList.toggle("wide", v==="sim"||v==="comp");
+  document.body.classList.toggle("wide", v==="sim"||v==="comp"||v==="des");
+  if(v==="des"){ renderDesLoteSel(); renderDesenhos(); }
   if(v==="cons") renderConsView();
   if(v==="comp"){ renderCompLoteSel(); renderComparativo(); }
 }
 setView("sim");
 document.getElementById("nav-sim").addEventListener("click",()=>setView("sim"));
+document.getElementById("nav-des").addEventListener("click",()=>setView("des"));
 document.getElementById("nav-comp").addEventListener("click",()=>setView("comp"));
 document.getElementById("nav-cons").addEventListener("click",()=>setView("cons"));
 document.getElementById("nav-cad").addEventListener("click",()=>setView("cad"));
