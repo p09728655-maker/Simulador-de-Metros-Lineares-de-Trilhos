@@ -118,6 +118,17 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 
 .foot-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .top-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+/* barra grudada no topo: acompanha a ocupação enquanto você mexe nos desenhos */
+.hud{position:sticky;top:54px;z-index:15;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:9px 14px;margin:0 0 14px;
+  font-family:var(--font-d);font-size:11px;color:var(--txt2);box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.hud b{font-family:var(--font-h);font-size:15px;color:var(--txt)}
+.hud .hud-i{display:flex;align-items:baseline;gap:6px}
+.hud .hud-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--txt3)}
+.hud .ok{color:var(--ok)} .hud .warn{color:var(--warn)} .hud .red{color:var(--red)}
+.hud .hud-delta{font-family:var(--font-d);font-size:11px;font-weight:600}
+.hud .hud-delta.down{color:var(--ok)} .hud .hud-delta.up{color:var(--red)}
+.hud .hud-sep{width:1px;align-self:stretch;background:var(--border)}
 /* desenho do lastro */
 .des-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:14px}
 @media(min-width:1400px){.des-grid{grid-template-columns:repeat(3,1fr)}}   /* 3 por fileira: desenho maior */
@@ -280,6 +291,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <button class="linkbtn no-print" id="btn-novo">+ Importar outro PDF</button>
       <button class="linkbtn no-print" id="btn-del-lote" style="margin-left:auto">Remover este lote</button>
     </div>
+
+    <div id="hud" class="hud no-print"></div>
 
     <div class="top-actions no-print">
       <button class="linkbtn" id="btn-pdf">🖨️ Relatório deste lote (PDF)</button>
@@ -848,7 +861,38 @@ function renderLoteSel(){
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
 }
+/* barra fixa: ocupação sempre à vista, inclusive na hora de mexer nos desenhos.
+   Mostra também quanto a última alteração mudou nos metros. */
+let HUD_ANT=null;
+function renderHud(){
+  const el=document.getElementById("hud"); if(!el) return;
+  const lt=LOTES[CUR];
+  if(!lt){ el.innerHTML=""; el.style.display="none"; return; }
+  el.style.display="";
+  const T=loteTotals(CUR), disp=totalDisponivel();
+  const pct=disp>0?T.O/disp*100:0;
+  const cls=p=>p>100?"red":(p>85?"warn":"ok");
+  const d=(HUD_ANT!=null && Math.abs(T.O-HUD_ANT)>0.005) ? T.O-HUD_ANT : null;
+  HUD_ANT=T.O;
+  const unid=unidadeTotals(CUR).filter(u=>u.O>0||u.metros>0).map(u=>{
+    const p=u.metros>0?u.O/u.metros*100:0;
+    return `<div class="hud-i"><span class="hud-lbl">${esc(u.nome)}</span><b class="${cls(p)}">${u.metros>0?fmt(p)+"%":"—"}</b>
+      <span>${fmt(u.O)}/${fmt(u.metros)} m</span></div>`;
+  }).join('<div class="hud-sep"></div>');
+  el.innerHTML=`
+    <div class="hud-i"><span class="hud-lbl">${esc(lt.lote)}</span><b>${fmt(T.O)} m</b>
+      <span>de ${fmt(disp)} m</span>
+      ${d!=null?`<span class="hud-delta ${d<0?"down":"up"}">${d<0?"▼":"▲"} ${fmt(Math.abs(d))} m</span>`:""}</div>
+    <div class="hud-sep"></div>
+    <div class="hud-i"><span class="hud-lbl">Ocupação</span><b class="${cls(pct)}">${fmt(pct)}%</b></div>
+    <div class="hud-sep"></div>
+    ${unid}
+    <div class="hud-sep"></div>
+    <div class="hud-i"><span class="hud-lbl">Pilhas</span><b>${fmtInt(T.N)}</b>
+      <span>= ${fmtInt(T.N)} tábua(s)</span></div>`;
+}
 function renderKpis(){
+  renderHud();
   const k=document.getElementById("kpis"); const lt=LOTES[CUR]; if(!lt){ k.innerHTML=""; return; }
   const T=loteTotals(CUR); const disp=totalDisponivel();
   const pct = disp>0 ? T.O/disp : 0;

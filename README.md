@@ -29,6 +29,9 @@ na tela e o simulador monta tudo:
   o **giro** (Auto · Em pé · Virada ↻) e a **folga** de cada ponta (`folga 100` ou `folga 75`).
   A economia do giro aparece só quando existe ganho real; giros que deixariam a peça **sem apoio**
   na tábua não entram na conta nem no botão **“Aplicar o melhor giro”**.
+- **Barra de ocupação fixa** — enquanto você mexe nos desenhos, uma barra grudada no topo mostra
+  metros do lote, **ocupação do trilho**, ocupação por unidade e nº de tábuas, com a **variação da
+  última alteração** (ex.: `▼ 0,4 m`).
 - **Tábuas do lote** — resumo de **quantas tábuas de cada medida** o lote consome (cada pilha ocupa
   uma tábua no trilho), com itens, peças, metros e o % do lote. Serve como lista de separação para o
   corte e sai também no **PDF do lote** e na **impressão dos desenhos**.
