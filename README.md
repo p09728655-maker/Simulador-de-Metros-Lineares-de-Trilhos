@@ -20,7 +20,10 @@ na tela e o simulador monta tudo:
 - **Avanço permitido** (⚙ Cadastros, padrão **25 mm de cada lado**):
   - *no comprimento* — a peça avança sobre a folga de segurança (folga 100 − avanço 25 = **75 reais**).
     Ex.: `350×380` na tábua `1200` → `3 × 350 = 1050` cabe, **3 por lastro** em vez de 2.
-  - *na largura* — quanto a peça pode passar da tábua em cada lado (2 × 25 = 50 no total).
+  - *na largura* — quanto a peça pode passar da tábua em **cada lado** (padrão **60 mm/lado**).
+    Ex.: `615×420` virada numa tábua de 500 passa 115 mm → **57,5 mm de cada lado**, aceito.
+- No desenho as peças ficam **centralizadas na tábua**: a sobra (ou o que passa) é dividida
+  igualmente entre os dois lados, nos dois sentidos.
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
   `K = I×J`, peças por pilha `M = ARREDONDAR.BAIXO(altura da pilha / ALT × K)`,
   nº de pilhas `N = ARREDONDAR.CIMA(QTDE / M)` e **metros de esteira `O = (comp da tábua / 1000) × N`**.
