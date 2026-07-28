@@ -86,6 +86,9 @@ td.zero{color:var(--txt3)}
 select.cell-sel{background:var(--bg);border:.5px solid var(--border);color:var(--txt);font-family:var(--font-d);
   font-size:12px;padding:4px 6px;border-radius:5px;cursor:pointer;max-width:150px}
 select.cell-sel:focus{outline:none;border-color:var(--acc)}
+#tbl-sim select.cell-sel{max-width:112px}
+#tbl-sim select[data-giro]{max-width:104px}
+#tbl-sim .desc-txt{display:inline-block;max-width:330px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 
 .card{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:14px 16px}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
@@ -845,13 +848,15 @@ function tabuaOptions(sel){
   return ord.map(t=>`<option value="${t.comp}|${t.larg}" ${sel&&sel.c===t.comp&&sel.l===t.larg?"selected":""}>${t.comp}×${t.larg} ${esc(t.material||"")}</option>`).join("");
 }
 // como a peça entra no lastro: auto (testa as duas) · em pé · virada
-// mostra entre parênteses quantas peças por lastro cada opção rende
-function giroOptions(row, c){
+// mostra quantas peças por lastro cada opção rende (curto na tabela, detalhado no desenho)
+function giroOptions(row, c, compacto){
   const v=row.giro||"auto";
   const f=encaixesPossiveis(row,c.tComp,c.tLarg,true);
   const a=orientacaoAuto(row,c.tComp,c.tLarg);
-  const q=o=>o?` (${o.K}/lastro${o.excesso>0.5?", passa "+Math.round(o.excesso):""})`:" (não cabe)";
-  return [["auto","Auto"+(a?(a.virada?" → virada ↻":" → em pé"):"")],["normal","Em pé"+q(f.normal)],["virada","Virada ↻"+q(f.virada)]]
+  const q=o=>o? (compacto?` · ${o.K}`:` (${o.K}/lastro${o.excesso>0.5?", passa "+Math.round(o.excesso):""})`)
+              : (compacto?" · —":" (não cabe)");
+  const auto="Auto"+(a?(a.virada?(compacto?" (↻)":" → virada ↻"):(compacto?" (pé)":" → em pé")):"");
+  return [["auto",auto],["normal","Em pé"+q(f.normal)],["virada","Virada ↻"+q(f.virada)]]
     .map(([val,lbl])=>`<option value="${val}" ${v===val?"selected":""}>${lbl}</option>`).join("");
 }
 function unidadeOptions(selIdx){
@@ -880,7 +885,7 @@ function renderSim(){
       <td class='num ${dimOk?"":"zero"}'>${r.alt??"—"}</td>
       <td class='calc'>${c.sug}</td>
       <td class='l'><select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
-      <td class='l'><select class='cell-sel' data-giro='${idx}' title='Como a peça entra no lastro. Auto testa em pé e virada e fica com a que rende mais.'>${giroOptions(r,c)}</select></td>
+      <td class='l'><select class='cell-sel' data-giro='${idx}' title='Como a peça entra no lastro. Auto testa em pé e virada e fica com a que rende mais.'>${giroOptions(r,c,true)}</select></td>
       <td class='l'><select class='cell-sel' data-unid-in='${idx}' title='${esc(r.material||"")}'>${unidadeOptions(resolveUnidadeIdx(r))}</select></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-j-in='${idx}' value='${c.J}'></td>
