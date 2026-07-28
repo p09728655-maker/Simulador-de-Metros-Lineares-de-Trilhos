@@ -130,6 +130,7 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-giro{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;
   font-family:var(--font-d);font-size:10px;color:var(--txt2)}
 .des-giro label{display:flex;align-items:center;gap:6px}
+.des-giro select.cell-sel{max-width:210px}
 .des-eco-cmp{color:var(--txt3)}
 .des-eco{font-weight:600;color:var(--txt3)}
 .des-eco.ok{color:var(--ok)}
@@ -881,11 +882,20 @@ function giroOptions(row, c, compacto){
   return [["auto",auto],["normal","Em pé"+q(f.normal,!!ok.normal)],["virada","Virada ↻"+q(f.virada,!!ok.virada)]]
     .map(([val,lbl])=>`<option value="${val}" ${v===val?"selected":""}>${lbl}</option>`).join("");
 }
+// tábuas cadastradas com o que cada uma renderia para esta peça (peças por lastro)
+function tabuaOptionsCalc(row, c){
+  const ord=TABUAS.slice().sort((a,b)=>a.comp-b.comp);
+  return ord.map(t=>{
+    const or=orientacaoAuto(row,t.comp,t.larg);
+    const sel=(+c.tComp===+t.comp && +c.tLarg===+t.larg)?"selected":"";
+    return `<option value="${t.comp}|${t.larg}" ${sel}>${t.comp}×${t.larg}${or?" · "+or.K+"/lastro":" · não cabe"}</option>`;
+  }).join("");
+}
 // folga de cada ponta: cheia (sem avanço) ou reduzida pelo avanço — quem decide é o operador
 function folgaOptions(row, c){
   const base=folgaBase(), av=avancoComp();
-  const opts=[{av:0, lbl:base+" mm (cheia)"}];
-  if(av>0) opts.push({av, lbl:(base-av)+" mm (avança "+av+")"});
+  const opts=[{av:0, lbl:"folga "+base}];
+  if(av>0) opts.push({av, lbl:"folga "+(base-av)});
   const atual=avancoDe(row);
   return opts.map(o=>{
     const K=(()=>{ const f=encaixesPossiveis({...row, avanco:o.av}, c.tComp, c.tLarg);
@@ -1208,8 +1218,9 @@ function desenhoCardHtml(a, tema, ai){
     ? `<span class="des-eco ok">${a.melhorGiro==="virada"?"↻":"▭"} −${fmt(a.economia)} m</span>` : "";
   const giro = tema==="print" ? "" :
     `<div class="des-giro no-print">
+      <select class="cell-sel" data-tabua-arr="${ai}" title="Tábua usada — vale para as ${a.cods.length} peça(s) deste arranjo">${tabuaOptionsCalc(r,c)}</select>
       <select class="cell-sel" data-giro-arr="${ai}" title="Como a peça entra no lastro — vale para as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
-      <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento — você decide se a peça avança sobre ela">${folgaOptions(r,c)}</select>
+      <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento: cheia (${folgaBase()} mm) ou reduzida pelo avanço de ${avancoComp()} mm">${folgaOptions(r,c)}</select>
       ${eco}
     </div>`;
   return `<div class="${tema==="print"?"des-box":"des-card"}">
@@ -1251,6 +1262,15 @@ function renderDesenhos(){
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
     window.scrollTo(0,y);
   });
+  // trocar a tábua pelo desenho: vale para todas as peças daquele arranjo
+  box.querySelectorAll("select[data-tabua-arr]").forEach(s=>s.addEventListener("change",e=>{
+    const a=arr[+e.target.dataset.tabuaArr]; if(!a) return;
+    const y=window.scrollY, [tc,tl]=e.target.value.split("|").map(Number);
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+      row.tabuaComp=tc; row.tabuaLarg=tl; row.I=null; row.J=null; }
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);
+  }));
   // folga pelo desenho: o operador escolhe se a peça avança sobre a folga
   box.querySelectorAll("select[data-folga-arr]").forEach(s=>s.addEventListener("change",e=>{
     const a=arr[+e.target.dataset.folgaArr]; if(!a) return;

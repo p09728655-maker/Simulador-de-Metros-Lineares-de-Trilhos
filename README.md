@@ -24,9 +24,9 @@ na tela e o simulador monta tudo:
     limitado ainda pelo **apoio mínimo da peça** (padrão **67%** da largura dela sobre a tábua).
     Ex.: `615×420` virada numa tábua de 500 passa 115 mm → 57,5 mm de cada lado, apoia 91% → **ok**.
     Já uma ripa de 48 mm com 38 mm no ar é recusada — a fileira da ponta não teria apoio.
-- **Girar / folga pelo desenho** — cada card tem dois seletores que valem para todas as peças
-  daquele arranjo: o **giro** (Auto · Em pé · Virada ↻, com o que cada um rende por lastro) e a
-  **folga** de cada ponta (cheia, ex. 100 mm, ou reduzida pelo avanço, ex. 75 mm) — quem decide é você.
+- **Ajustar pelo desenho** — cada card tem três seletores que valem para todas as peças daquele
+  arranjo, todos mostrando **quanto cada opção rende por lastro**: a **tábua** (`1600×500 · 2/lastro`),
+  o **giro** (Auto · Em pé · Virada ↻) e a **folga** de cada ponta (`folga 100` ou `folga 75`).
   A economia do giro aparece só quando existe ganho real; giros que deixariam a peça **sem apoio**
   na tábua não entram na conta nem no botão **“Aplicar o melhor giro”**.
 - **Tábuas do lote** — resumo de **quantas tábuas de cada medida** o lote consome (cada pilha ocupa
