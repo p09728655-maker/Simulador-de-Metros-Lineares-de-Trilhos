@@ -112,6 +112,9 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
   border-radius:5px;padding:4px 10px}
 
 .foot-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
+.top-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.top-actions .linkbtn.destaque{border-color:rgba(255,92,31,.55);color:var(--acc)}
+.top-actions .linkbtn.destaque:hover{background:rgba(255,92,31,.08)}
 
 /* Gráficos (barras horizontais, SVG/CSS puro) */
 .chart{display:flex;flex-direction:column;gap:12px}
@@ -157,6 +160,11 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 .print-report .rep-tbl thead{display:table-header-group}
 .print-report .rep-badge{font-family:var(--font-d);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid currentColor}
 .print-report .r-ok{color:#2e7d32} .print-report .r-warn{color:#e65100} .print-report .r-red{color:#c62828}
+.print-report .rep-page{break-after:page;page-break-after:always}
+.print-report .rep-page:last-child{break-after:auto;page-break-after:auto}
+.print-report .rep-tbl.rep-tbl-sm{font-size:9px}
+.print-report .rep-tbl.rep-tbl-sm th{font-size:8px;padding:5px 6px}
+.print-report .rep-tbl.rep-tbl-sm td{padding:4px 6px}
 .print-report .rep-foot{margin-top:18px;font-family:var(--font-d);font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;text-align:center}
 .print-report .rep-ctitle{font-family:var(--font-h);font-weight:700;font-size:14px;margin:16px 0 6px;color:#111}
 .print-report .rep-chart{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
@@ -181,6 +189,11 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   /* modo relatório de comparação: imprime só o relatório */
   body.printing-comp #view-sim, body.printing-comp #view-cad, body.printing-comp #view-cons, body.printing-comp #view-comp{display:none !important}
   body.printing-comp #report-comparativo{display:block !important}
+  /* modo "todos os lotes" (um lote por página) e comparação de todos os lotes */
+  body.printing-todos #view-sim, body.printing-todos #view-cad, body.printing-todos #view-cons, body.printing-todos #view-comp{display:none !important}
+  body.printing-todos #report-todos{display:block !important}
+  body.printing-comp-todos #view-sim, body.printing-comp-todos #view-cad, body.printing-comp-todos #view-cons, body.printing-comp-todos #view-comp{display:none !important}
+  body.printing-comp-todos #report-comp-todos{display:block !important}
   h2{color:#111 !important;font-size:14px} h2 .tag{display:none} .sec-sub{display:none}
   .tbl-wrap{overflow:visible !important;border:1px solid #bbb}
   table{font-size:9px}
@@ -237,6 +250,12 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <button class="linkbtn no-print" id="btn-del-lote" style="margin-left:auto">Remover este lote</button>
     </div>
 
+    <div class="top-actions no-print">
+      <button class="linkbtn" id="btn-pdf">🖨️ Relatório deste lote (PDF)</button>
+      <button class="linkbtn destaque" id="btn-pdf-todos">🖨️ Imprimir TODOS os lotes (PDF)</button>
+      <button class="linkbtn destaque" id="btn-xlsx-sim">⬇ Salvar TODOS os lotes (.xlsx)</button>
+    </div>
+
     <div class="print-only" id="print-head" style="border-bottom:2px solid #FF5C1F;padding-bottom:8px;margin-bottom:12px">
       <div style="font-family:var(--font-h);font-weight:700;font-size:19px;color:#111">Simulador de Trilhos · <span id="ph-lote"></span></div>
       <div id="ph-meta" style="font-family:var(--font-d);font-size:9px;color:#555"></div>
@@ -262,9 +281,6 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="tbl-wrap"><table id="tbl-sim"></table></div>
     </section>
 
-    <div class="foot-actions">
-      <button class="linkbtn" id="btn-pdf">🖨️ Relatório do lote (PDF)</button>
-    </div>
   </div><!-- /#painel -->
   </div><!-- /#view-sim -->
 
@@ -327,6 +343,12 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 
   <!-- ===================== VIEW: CONSOLIDADO ===================== -->
   <div id="view-cons" class="hidden">
+    <div class="top-actions no-print">
+      <button class="linkbtn" id="btn-consol">📊 Relatório consolidado (PDF)</button>
+      <button class="linkbtn destaque" id="btn-pdf-todos-2">🖨️ Imprimir TODOS os lotes (PDF)</button>
+      <button class="linkbtn destaque" id="btn-xlsx">⬇ Salvar TODOS os lotes (.xlsx)</button>
+    </div>
+
     <div class="kpis" id="cons-kpis"></div>
 
     <section id="sec-cons-lote">
@@ -351,10 +373,6 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="tbl-wrap"><table id="tbl-geral-unid"></table></div>
     </section>
 
-    <div class="foot-actions">
-      <button class="linkbtn" id="btn-consol">📊 Relatório consolidado (PDF)</button>
-      <button class="linkbtn" id="btn-xlsx">⬇ Exportar (.xlsx)</button>
-    </div>
   </div><!-- /#view-cons -->
 
   <!-- ===================== VIEW: COMPARAR TÁBUAS ===================== -->
@@ -366,6 +384,7 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
           <select id="comp-lote-sel" class="cell-sel"></select>
         </label>
         <button class="linkbtn no-print" id="btn-comp-pdf" style="margin-left:auto">🖨️ Imprimir comparação (PDF)</button>
+        <button class="linkbtn destaque no-print" id="btn-comp-pdf-todos">🖨️ Comparação de TODOS os lotes (PDF)</button>
       </div>
       <section id="sec-comparativo">
         <h2>Comparar tábuas <span class="tag" id="comp-tag"></span></h2>
@@ -394,6 +413,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
   <!-- Relatórios (ocultos na tela; usados na impressão/PDF) -->
   <div id="report-consolidado" class="print-report"></div>
   <div id="report-comparativo" class="print-report"></div>
+  <div id="report-todos" class="print-report"></div>
+  <div id="report-comp-todos" class="print-report"></div>
 </main>
 
 <footer>Simulador de Metros Lineares de Trilhos · Patrimar Móveis · processado localmente no navegador</footer>
@@ -705,6 +726,9 @@ function unidadeOptions(selIdx){
 function renderSim(){
   const lt=LOTES[CUR]; const t=document.getElementById("tbl-sim");
   document.getElementById("sim-tag").textContent = lt? (lt.lote+" · "+lt.rows.length+" peças") : "";
+  // cabeçalho usado se o usuário imprimir a tela direto (Ctrl+P)
+  document.getElementById("ph-lote").textContent = lt? lt.lote : "";
+  document.getElementById("ph-meta").textContent = "Gerado em "+new Date().toLocaleString("pt-BR");
   if(!lt){ t.innerHTML=""; return; }
   let h="<thead><tr>"
     +"<th class='l'>Peça (código · descrição)</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>"
@@ -1039,7 +1063,8 @@ function exportXlsx(){
   for(const u of unidadeTotals(null)){ g.push([u.nome,u.material,u.qty,Math.round(u.N),Math.round(u.O*100)/100,u.metros,u.metros>0?Math.round(u.O/u.metros*10000)/100:0]); }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(g), "GERAL");
   for(const k of keys) addLoteSheet(k);
-  XLSX.writeFile(wb, "simulador_trilhos.xlsx");
+  // nome do arquivo já sai como o(s) lote(s): "LOTE 140.xlsx" / "LOTES 140, 142.xlsx"
+  XLSX.writeFile(wb, nomeLotes(keys)+".xlsx");
 }
 
 /* ================= wire up ================= */
@@ -1134,8 +1159,7 @@ function repBarChart(items, ref){
   }
   return h+'</div>';
 }
-function renderConsolidado(){
-  const el=document.getElementById("report-consolidado");
+function consolidadoHtml(){
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   const disp=totalDisponivel();
   let gQ=0,gN=0,gO=0, rows="";
@@ -1151,7 +1175,7 @@ function renderConsolidado(){
       <td class='l'><span class='rep-badge ${cls}'>${st}</span></td></tr>`;
   }
   const now=new Date();
-  el.innerHTML=`
+  return `
     <div class="rep-head">
       <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
       <div>
@@ -1187,17 +1211,118 @@ function renderConsolidado(){
     })()}
     <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador · "Disponível" é a capacidade de trilho por rodada</div>`;
 }
-document.getElementById("btn-consol").addEventListener("click",()=>{
-  if(!Object.keys(LOTES).length){ alert("Importe ao menos um lote para gerar o consolidado."); return; }
-  renderConsolidado();
-  document.body.classList.add("printing-cons");
+function renderConsolidado(){ document.getElementById("report-consolidado").innerHTML=consolidadoHtml(); }
+
+/* ============ nome do arquivo ao salvar/imprimir ============
+   O navegador usa o TÍTULO da página como nome sugerido no "Salvar como PDF",
+   então trocamos o título antes de imprimir: "LT 140/26" → "LOTE 140". */
+const TITULO_PADRAO=document.title;
+function loteNumeroDe(key){
+  const lt=LOTES[key]; const s=lt?lt.lote:String(key||"");
+  const m=String(s).match(/(\d+)\s*\/\s*(\d+)/);
+  return m? String(+m[1]) : String(s).replace(/^LT\s*/i,"").trim();
+}
+function nomeLote(key){ const n=loteNumeroDe(key); return n?("LOTE "+n):"LOTE"; }
+function nomeLotes(keys){
+  const nums=(keys||[]).map(loteNumeroDe).filter(Boolean);
+  if(!nums.length) return "LOTES";
+  if(nums.length===1) return "LOTE "+nums[0];
+  if(nums.length<=6) return "LOTES "+nums.join(", ");
+  return "LOTES "+nums[0]+" a "+nums[nums.length-1]+" ("+nums.length+" lotes)";
+}
+const CLASSES_PRINT=["printing-cons","printing-comp","printing-todos","printing-comp-todos"];
+function imprimirComo(nome, cls){
+  if(nome) document.title=nome;
+  if(cls) document.body.classList.add(cls);
   window.print();
+}
+document.getElementById("btn-consol").addEventListener("click",()=>{
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  if(!keys.length){ alert("Importe ao menos um lote para gerar o consolidado."); return; }
+  renderConsolidado();
+  imprimirComo("CONSOLIDADO "+nomeLotes(keys), "printing-cons");
 });
 
+/* ============ relatório de UM lote (usado também no "todos os lotes") ============ */
+function loteReportHtml(key, titulo){
+  const lt=LOTES[key]; if(!lt) return "";
+  const disp=totalDisponivel();
+  const T=loteTotals(key);
+  const pct=disp>0?T.O/disp:0;
+  const clsR=p=>p>1?"r-red":(p>0.85?"r-warn":"r-ok");
+  const stR=p=>p>1?"Acima da capacidade":(p>0.85?"No limite":"OK");
+  const now=new Date();
+  // por unidade de corte
+  let ur="";
+  for(const u of unidadeTotals(key)){
+    const p=u.metros>0?u.O/u.metros:0;
+    ur+=`<tr><td class='l'>${esc(u.nome)}</td><td class='l'>${esc(u.material||"—")}</td>`
+      +`<td>${fmtInt(u.qty)}</td><td>${fmtInt(u.N)}</td><td>${fmt(u.O)}</td><td>${fmt(u.metros)}</td>`
+      +`<td>${u.metros>0?fmt(p*100)+"%":"—"}</td>`
+      +`<td class='l'>${u.metros>0?`<span class='rep-badge ${clsR(p)}'>${stR(p)}</span>`:"—"}</td></tr>`;
+  }
+  // peças do lote
+  let pr="", sQ=0, sN=0, sO=0;
+  for(const r of lt.rows){
+    const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
+    const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"—";
+    const semMedida=!(r.comp&&r.larg&&r.alt);
+    pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
+      +`<td>${fmtInt(r.qty)}</td><td>${r.comp??"—"}</td><td>${r.larg??"—"}</td><td>${r.alt??"—"}</td>`
+      +`<td>${c.tComp}×${c.tLarg}</td><td class='l'>${esc(uNome)}</td>`
+      +`<td>${fmt(c.I)}</td><td>${fmt(c.J)}</td><td>${fmt(c.K)}</td><td>${fmtInt(c.M)}</td><td>${fmtInt(c.N)}</td><td>${fmt(c.O)}</td></tr>`;
+  }
+  return `
+    <div class="rep-head">
+      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="rep-title">${esc(titulo||("Lote "+lt.lote))} <span>· Simulador de Trilhos</span></div>
+        <div class="rep-meta">${esc(lt.lote)} · ${lt.rows.length} itens · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+      </div>
+    </div>
+    <div class="rep-kpis">
+      <div><span>Peças no lote</span><b>${fmtInt(T.qty)}</b></div>
+      <div><span>Itens (peças distintas)</span><b>${fmtInt(lt.rows.length)}</b></div>
+      <div><span>Pilhas</span><b>${fmtInt(T.N)}</b></div>
+      <div><span>Necessidade trilho</span><b>${fmt(T.O)} m</b></div>
+      <div><span>Trilho disponível</span><b>${fmt(disp)} m</b></div>
+      <div><span>Ocupação</span><b>${disp>0?fmt(pct*100)+"%":"—"}</b></div>
+    </div>
+    <div class="rep-ctitle">Por unidade de corte</div>
+    <table class="rep-tbl">
+      <thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead>
+      <tbody>${ur||"<tr><td class='l' colspan='8'>Nenhuma unidade cadastrada.</td></tr>"}</tbody>
+    </table>
+    <div class="rep-ctitle">Simulação do lote (${lt.rows.length} itens)</div>
+    <table class="rep-tbl rep-tbl-sm">
+      <thead><tr><th class='l'>Código</th><th class='l'>Descrição</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>
+        <th>Tábua</th><th class='l'>Unidade</th><th>I</th><th>J</th><th>K</th><th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead>
+      <tbody>${pr||"<tr><td class='l' colspan='14'>Sem peças neste lote.</td></tr>"}
+        <tr class="rep-tot"><td class='l' colspan='2'>Total</td><td>${fmtInt(sQ)}</td><td colspan='9'></td><td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>
+      </tbody>
+    </table>
+    <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador</div>`;
+}
+// relatório com TODOS os lotes: 1ª página consolidada + uma página por lote
+function renderTodosReport(keys){
+  const el=document.getElementById("report-todos");
+  let h="";
+  if(keys.length>1) h+=`<div class="rep-page">${consolidadoHtml()}</div>`;
+  keys.forEach((k,i)=>{ h+=`<div class="rep-page">${loteReportHtml(k, "Lote "+LOTES[k].lote+(keys.length>1?` · ${i+1}/${keys.length}`:""))}</div>`; });
+  el.innerHTML=h;
+}
+function imprimirTodosLotes(){
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  if(!keys.length){ alert("Importe ao menos um lote para imprimir."); return; }
+  renderTodosReport(keys);
+  imprimirComo(nomeLotes(keys), "printing-todos");
+}
+document.getElementById("btn-pdf-todos").addEventListener("click",imprimirTodosLotes);
+document.getElementById("btn-pdf-todos-2").addEventListener("click",imprimirTodosLotes);
+
 // relatório de impressão da comparação de tábuas (lote atual)
-function renderComparativoReport(){
-  const el=document.getElementById("report-comparativo");
-  const lt=LOTES[CUR]; if(!el||!lt) return;
+function comparativoReportHtml(lt){
+  if(!lt) return "";
   const disp=totalDisponivel();
   const {oA,oB,sizes}=compDataFor(lt.rows);
   const pctA=disp>0?oA/disp:0, pctB=disp>0?oB/disp:0;
@@ -1221,7 +1346,7 @@ function renderComparativoReport(){
   let sT=0,sQ=0,sN=0,sO=0,sr="";
   for(const r of rows){ sT+=r.tipos; sQ+=r.qty; sN+=r.N; sO+=r.O;
     sr+=`<tr><td class='l'>${r.comp}×${r.larg}</td><td>${fmtInt(r.tipos)}</td><td>${fmtInt(r.qty)}</td><td>${fmtInt(r.N)}</td><td>${fmt(r.O)}</td></tr>`; }
-  el.innerHTML=`
+  return `
     <div class="rep-head">
       <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
       <div>
@@ -1259,21 +1384,36 @@ function renderComparativoReport(){
     </table>
     <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador · sugestão = menor tábua padronizada que mantém o encaixe</div>`;
 }
+function renderComparativoReport(){
+  const el=document.getElementById("report-comparativo"); const lt=LOTES[CUR];
+  if(!el||!lt) return; el.innerHTML=comparativoReportHtml(lt);
+}
 document.getElementById("btn-comp-pdf").addEventListener("click",()=>{
   if(!LOTES[CUR]){ alert("Importe um lote no Simulador para comparar as tábuas."); return; }
   renderComparativoReport();
-  document.body.classList.add("printing-comp");
-  window.print();
+  imprimirComo("COMPARACAO TABUAS "+nomeLote(CUR), "printing-comp");
 });
-window.addEventListener("afterprint",()=>document.body.classList.remove("printing-cons","printing-comp"));
+// comparação de tábuas de TODOS os lotes — uma página por lote
+document.getElementById("btn-comp-pdf-todos").addEventListener("click",()=>{
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  if(!keys.length){ alert("Importe um lote no Simulador para comparar as tábuas."); return; }
+  document.getElementById("report-comp-todos").innerHTML =
+    keys.map(k=>`<div class="rep-page">${comparativoReportHtml(LOTES[k])}</div>`).join("");
+  imprimirComo("COMPARACAO TABUAS "+nomeLotes(keys), "printing-comp-todos");
+});
+// ao fechar a impressão, volta o título e o modo normal da tela
+window.addEventListener("afterprint",()=>{
+  document.body.classList.remove(...CLASSES_PRINT);
+  document.title=TITULO_PADRAO;
+});
 
 document.getElementById("btn-xlsx").addEventListener("click",exportXlsx);
+document.getElementById("btn-xlsx-sim").addEventListener("click",exportXlsx);
+// relatório de UM lote (o selecionado)
 document.getElementById("btn-pdf").addEventListener("click",()=>{
-  const lt=LOTES[CUR]; if(!lt) return;
-  document.getElementById("ph-lote").textContent=lt.lote;
-  const n=new Date();
-  document.getElementById("ph-meta").textContent="Gerado em "+n.toLocaleString("pt-BR");
-  window.print();
+  if(!LOTES[CUR]){ alert("Importe um lote para gerar o relatório."); return; }
+  document.getElementById("report-todos").innerHTML=`<div class="rep-page">${loteReportHtml(CUR)}</div>`;
+  imprimirComo(nomeLote(CUR), "printing-todos");
 });
 
 /* navegação entre telas Simulador / Cadastros */
