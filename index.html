@@ -119,15 +119,18 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .foot-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .top-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
 /* barra grudada no topo: acompanha a ocupação enquanto você mexe nos desenhos */
-.hud{position:sticky;top:54px;z-index:15;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
-  background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:9px 14px;margin:0 0 14px;
-  font-family:var(--font-d);font-size:11px;color:var(--txt2);box-shadow:0 6px 18px rgba(0,0,0,.45)}
-.hud b{font-family:var(--font-h);font-size:15px;color:var(--txt)}
-.hud .hud-i{display:flex;align-items:baseline;gap:6px}
-.hud .hud-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--txt3)}
-.hud .ok{color:var(--ok)} .hud .warn{color:var(--warn)} .hud .red{color:var(--red)}
-.hud .hud-delta{font-family:var(--font-d);font-size:11px;font-weight:600}
-.hud .hud-delta.down{color:var(--ok)} .hud .hud-delta.up{color:var(--red)}
+.hud{position:sticky;top:54px;z-index:15;display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+  background:var(--elevated,#1c1c1c);border:1px solid rgba(255,92,31,.35);border-radius:8px;padding:11px 16px;margin:0 0 14px;
+  font-family:var(--font-d);font-size:12px;color:var(--txt);box-shadow:0 8px 22px rgba(0,0,0,.6)}
+.hud b{font-family:var(--font-h);font-size:19px;color:#fff;line-height:1}
+.hud .hud-i{display:flex;align-items:baseline;gap:7px}
+.hud .hud-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--txt2)}
+.hud .hud-sub{font-size:11px;color:var(--txt2)}
+.hud .ok{color:#5ec269} .hud .warn{color:#ffa733} .hud .red{color:#ff6b5e}
+.hud .hud-pct{font-size:24px}
+.hud .hud-delta{font-family:var(--font-d);font-size:12px;font-weight:700;padding:2px 8px;border-radius:20px}
+.hud .hud-delta.down{color:#5ec269;background:rgba(94,194,105,.14)}
+.hud .hud-delta.up{color:#ff6b5e;background:rgba(255,107,94,.14)}
 .hud .hud-sep{width:1px;align-self:stretch;background:var(--border)}
 /* desenho do lastro */
 .des-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:14px}
@@ -877,19 +880,19 @@ function renderHud(){
   const unid=unidadeTotals(CUR).filter(u=>u.O>0||u.metros>0).map(u=>{
     const p=u.metros>0?u.O/u.metros*100:0;
     return `<div class="hud-i"><span class="hud-lbl">${esc(u.nome)}</span><b class="${cls(p)}">${u.metros>0?fmt(p)+"%":"—"}</b>
-      <span>${fmt(u.O)}/${fmt(u.metros)} m</span></div>`;
+      <span class="hud-sub">${fmt(u.O)}/${fmt(u.metros)} m</span></div>`;
   }).join('<div class="hud-sep"></div>');
   el.innerHTML=`
     <div class="hud-i"><span class="hud-lbl">${esc(lt.lote)}</span><b>${fmt(T.O)} m</b>
-      <span>de ${fmt(disp)} m</span>
+      <span class="hud-sub">de ${fmt(disp)} m</span>
       ${d!=null?`<span class="hud-delta ${d<0?"down":"up"}">${d<0?"▼":"▲"} ${fmt(Math.abs(d))} m</span>`:""}</div>
     <div class="hud-sep"></div>
-    <div class="hud-i"><span class="hud-lbl">Ocupação</span><b class="${cls(pct)}">${fmt(pct)}%</b></div>
+    <div class="hud-i"><span class="hud-lbl">Ocupação</span><b class="hud-pct ${cls(pct)}">${fmt(pct)}%</b></div>
     <div class="hud-sep"></div>
     ${unid}
     <div class="hud-sep"></div>
-    <div class="hud-i"><span class="hud-lbl">Pilhas</span><b>${fmtInt(T.N)}</b>
-      <span>= ${fmtInt(T.N)} tábua(s)</span></div>`;
+    <div class="hud-i"><span class="hud-lbl">Tábuas</span><b>${fmtInt(T.N)}</b>
+      <span class="hud-sub">pilhas</span></div>`;
 }
 function renderKpis(){
   renderHud();
