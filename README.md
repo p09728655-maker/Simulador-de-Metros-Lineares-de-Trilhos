@@ -11,8 +11,10 @@ na tela e o simulador monta tudo:
   `COMP × LARG × ALT` embutidas na descrição (ex.: `RACK YAN TAMPO 900X400X15 …` → 900 × 400 × 15 mm).
   As quantidades das várias OFs de um mesmo código são **somadas**.
 - **Cadastro de Tábuas (pranchas)** — os tamanhos padrão que você corta (já vem com
-  1200×500, 1360×500, 1600×500, 1850×500). O simulador **sugere** a tábua de menor comprimento
-  que comporta a peça (peça + 400 mm); você pode trocar a qualquer momento.
+  1200×500, 1360×500, 1600×500, 1850×500). O simulador escolhe sozinho a tábua que **gasta menos
+  esteira**: testa todas as cadastradas, nas duas orientações da peça, e fica com a de menor
+  consumo (empate → a mais curta). Você pode trocar a qualquer momento — a escolha manual manda.
+  A coluna **Mín. tábua** mostra o comprimento mínimo que a peça exige (peça + folga das 2 pontas).
 - **Encaixe em pé ou virada** — o simulador testa as **duas orientações** da peça na tábua e fica com a
   que rende **mais peças por lastro** (coluna **Giro**: `Auto` · `Em pé` · `Virada ↻`, travável por peça).
   Ex.: `417×141` numa tábua `1200×500` → **virada**: 7 por lastro em vez de 6. Travar `Em pé`/`Virada`
