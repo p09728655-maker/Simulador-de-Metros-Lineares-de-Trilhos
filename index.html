@@ -113,6 +113,14 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 
 .foot-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:8px}
 .top-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+/* desenho do lastro */
+.des-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:14px}
+.des-card{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px}
+.des-card .des-tit{font-family:var(--font-d);font-size:12px;color:var(--txt);margin-bottom:2px}
+.des-card .des-cod{font-family:var(--font-m,monospace);font-size:10px;color:var(--acc)}
+.des-card .des-sub{font-family:var(--font-d);font-size:10px;color:var(--txt2);margin:6px 0 0;line-height:1.55}
+.des-card svg{width:100%;height:auto;display:block;margin:8px 0 2px}
+.des-nada{font-family:var(--font-d);font-size:11px;color:var(--txt3);padding:10px 0}
 .top-actions .linkbtn.destaque{border-color:rgba(255,92,31,.55);color:var(--acc)}
 .top-actions .linkbtn.destaque:hover{background:rgba(255,92,31,.08)}
 
@@ -160,6 +168,12 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
 .print-report .rep-tbl thead{display:table-header-group}
 .print-report .rep-badge{font-family:var(--font-d);font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid currentColor}
 .print-report .r-ok{color:#2e7d32} .print-report .r-warn{color:#e65100} .print-report .r-red{color:#c62828}
+.print-report .des-print{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.print-report .des-box{border:1px solid #ccc;border-radius:5px;padding:8px 10px;break-inside:avoid;page-break-inside:avoid}
+.print-report .des-box .des-tit{font-family:var(--font-d);font-size:10px;font-weight:700;color:#111}
+.print-report .des-box .des-cod{font-size:9px;color:#FF5C1F}
+.print-report .des-box .des-sub{font-family:var(--font-d);font-size:8.5px;color:#555;line-height:1.5;margin-top:4px}
+.print-report .des-box svg{width:100%;height:auto;display:block;margin:6px 0 2px}
 .print-report .rep-page{break-after:page;page-break-after:always}
 .print-report .rep-page:last-child{break-after:auto;page-break-after:auto}
 .print-report .rep-tbl.rep-tbl-sm{font-size:9px}
@@ -279,6 +293,15 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
         <b>metros de esteira</b>. O <b>I</b> já <b>desconta a folga de segurança</b> de cada ponta (definida em ⚙ Cadastros)
         para a peça não enroscar no trilho.</div>
       <div class="tbl-wrap"><table id="tbl-sim"></table></div>
+    </section>
+
+    <!-- Desenho do lastro -->
+    <section id="sec-desenho">
+      <h2>Desenho do lastro <span class="tag" id="des-tag"></span></h2>
+      <div class="sec-sub">Como as peças ficam deitadas na tábua — <b>1 exemplo de cada</b> arranjo do lote.
+        A faixa cinza de cada ponta é a <b>folga de segurança</b> (⚙ Cadastros) e a faixa listrada no fim é a
+        <b>sobra de tábua</b> que não dá pra aproveitar.</div>
+      <div id="desenhos" class="des-grid"></div>
     </section>
 
   </div><!-- /#painel -->
@@ -729,7 +752,7 @@ function renderSim(){
   // cabeçalho usado se o usuário imprimir a tela direto (Ctrl+P)
   document.getElementById("ph-lote").textContent = lt? lt.lote : "";
   document.getElementById("ph-meta").textContent = "Gerado em "+new Date().toLocaleString("pt-BR");
-  if(!lt){ t.innerHTML=""; return; }
+  if(!lt){ t.innerHTML=""; renderDesenhos(); return; }
   let h="<thead><tr>"
     +"<th class='l'>Peça (código · descrição)</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>"
     +"<th>Sug. tábua</th><th class='l'>Tábua</th><th class='l'>Unidade</th><th>Qtde comp<br>lastro (I)</th><th>Qtde larg<br>lastro (J)</th><th>Total<br>(K)</th>"
@@ -778,6 +801,7 @@ function renderSim(){
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
+  renderDesenhos();   // o desenho do lastro acompanha a tabela
 }
 function renderGeral(){
   const t=document.getElementById("tbl-geral");
@@ -832,6 +856,117 @@ function renderUnid(){
   }
   h+="</tbody>"; t.innerHTML=h;
 }
+/* ================= desenho do lastro (como as peças ficam na tábua) ================= */
+// SVG da tábua vista de cima: folga nas 2 pontas, as peças encaixadas (I × J) e a sobra
+function lastroSvg(r, c, tema){
+  const claro = tema==="print";
+  const cor = claro
+    ? {tab:"#ffffff",tabL:"#999",folga:"#ececec",folgaL:"#aaa",pc:"#ffe2d4",pcL:"#FF5C1F",txt:"#444",cota:"#777",sobra:"#f4f4f4"}
+    : {tab:"#141414",tabL:"#5a5a5a",folga:"#242424",folgaL:"#6a6a6a",pc:"rgba(255,92,31,.26)",pcL:"#FF5C1F",txt:"#b9b9b9",cota:"#8a8a8a",sobra:"#1b1b1b"};
+  const folga=(PARAMS.folga!=null?PARAMS.folga:100);
+  const tC=+c.tComp||0, tL=+c.tLarg||0;
+  if(!(tC&&tL&&r.comp&&r.larg)) return "";
+  const W=560, s=W/tC, TOP=22, H=Math.max(28, tL*s), BOT=16;
+  const fx=folga*s;
+  const I=Math.max(0,Math.floor(c.I||0)), J=Math.max(0,Math.floor(c.J||0));
+  const usadoMM=I*r.comp, sobraMM=Math.max(0, tC-2*folga-usadoMM);
+  // se a peça é mais larga que a tábua, o desenho cresce p/ mostrar o excesso (e avisa)
+  const HP=J*r.larg*s, excede=(J*r.larg)>tL+0.5, HD=Math.max(H,HP);
+  const t=(x,y,txt,anchor,size)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor||"middle"}" font-family="ui-monospace,monospace" font-size="${size||11}" fill="${cor.txt}">${esc(txt)}</text>`;
+  let g="";
+  // cota do comprimento da tábua
+  g+=`<line x1="0" y1="${TOP-8}" x2="${W}" y2="${TOP-8}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<line x1="0" y1="${TOP-12}" x2="0" y2="${TOP-4}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<line x1="${W}" y1="${TOP-12}" x2="${W}" y2="${TOP-4}" stroke="${cor.cota}" stroke-width="1"/>`
+   + t(W/2, TOP-12, "tábua "+tC+" mm");
+  // tábua
+  g+=`<rect x="0" y="${TOP}" width="${W}" height="${H}" fill="${cor.tab}" stroke="${cor.tabL}" stroke-width="1"/>`;
+  // folga das 2 pontas
+  g+=`<rect x="0" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`
+   + `<rect x="${(W-fx).toFixed(1)}" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`;
+  const cabe=(txt,w,size)=>String(txt).length*(size||10)*0.62 <= w-4;   // texto só entra se couber na faixa
+  if(cabe(folga,fx,10)){ g+=t(fx/2, TOP+H/2+3, String(folga), "middle", 10) + t(W-fx/2, TOP+H/2+3, String(folga), "middle", 10); }
+  // sobra de tábua (depois da última peça, antes da folga da outra ponta)
+  if(sobraMM>0.5){
+    const sx=fx+usadoMM*s, sw=sobraMM*s;
+    g+=`<rect x="${sx.toFixed(1)}" y="${TOP}" width="${sw.toFixed(1)}" height="${H}" fill="${cor.sobra}" stroke="${cor.folgaL}" stroke-width=".8" stroke-dasharray="2 3"/>`;
+    const lblS="sobra "+Math.round(sobraMM);
+    if(cabe(lblS,sw,10)) g+=t(sx+sw/2, TOP+H/2+3, lblS, "middle", 10);
+    else if(cabe(Math.round(sobraMM),sw,10)) g+=t(sx+sw/2, TOP+H/2+3, String(Math.round(sobraMM)), "middle", 10);
+  }
+  // peças
+  for(let j=0;j<J;j++) for(let i=0;i<I;i++){
+    const x=fx+i*r.comp*s, y=TOP+j*r.larg*s, w=r.comp*s, h=r.larg*s;
+    const st=excede?"#c62828":cor.pcL;
+    g+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${cor.pc}" stroke="${st}" stroke-width="1"${excede?' stroke-dasharray="4 2"':""}/>`;
+    if(w>52&&h>14) g+=t(x+w/2, y+h/2+3, r.comp+"×"+r.larg, "middle", 10);
+  }
+  // sobra na largura
+  const sobraL=Math.max(0, tL-J*r.larg);
+  if(sobraL>0.5 && J>0){
+    const y=TOP+J*r.larg*s, h=sobraL*s;
+    if(h>3) g+=`<rect x="${fx.toFixed(1)}" y="${y.toFixed(1)}" width="${(W-2*fx).toFixed(1)}" height="${h.toFixed(1)}" fill="${cor.sobra}" stroke="${cor.folgaL}" stroke-width=".8" stroke-dasharray="2 3"/>`;
+  }
+  // cota da largura + aviso de peça mais larga que a tábua
+  g+=t(W, TOP+HD+11, "largura "+tL+" mm", "end", 10) + t(0, TOP+HD+11, I+" × "+J+" = "+(I*J)+" peça(s) por lastro", "start", 10);
+  if(excede) g+=`<text x="0" y="${TOP+HD+24}" font-family="ui-monospace,monospace" font-size="10" fill="#c62828">⚠ peça (${r.larg} mm) mais larga que a tábua (${tL} mm)</text>`;
+  return `<svg viewBox="0 0 ${W} ${TOP+HD+BOT+(excede?14:0)}" preserveAspectRatio="xMidYMid meet" role="img">${g}</svg>`;
+}
+// agrupa as peças do lote por arranjo igual (mesma tábua + mesma peça + mesmo encaixe) → "1 exemplo de cada"
+function arranjosDoLote(key){
+  const lt=LOTES[key]; if(!lt) return [];
+  const map=new Map();
+  for(const r of lt.rows){
+    if(!(r.comp&&r.larg&&r.alt)) continue;
+    const c=calcRow(r);
+    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}`;
+    const hit=map.get(k);
+    if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); }
+    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod]});
+  }
+  return [...map.values()].sort((a,b)=>b.O-a.O);
+}
+function desenhoCardHtml(a, tema){
+  const {r,c}=a;
+  const svg=lastroSvg(r,c,tema);
+  if(!svg) return "";
+  const outros=a.cods.length>1?` <span style="opacity:.7">(+${a.cods.length-1} peça(s) com o mesmo arranjo)</span>`:"";
+  const cam=camadasFor(r.alt);
+  return `<div class="${tema==="print"?"des-box":"des-card"}">
+    <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}</div>
+    ${svg}
+    <div class="des-sub">Peça ${r.comp}×${r.larg}×${r.alt} mm · tábua ${c.tComp}×${c.tLarg} mm ·
+      <b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro ·
+      ${cam} camadas → <b>${fmtInt(c.M)}</b> peças/pilha · ${fmtInt(a.qty)} peças = <b>${fmtInt(a.N)}</b> pilha(s) ·
+      <b>${fmt(a.O)} m</b> de esteira</div>
+  </div>`;
+}
+function renderDesenhos(){
+  const box=document.getElementById("desenhos"); if(!box) return;
+  const lt=LOTES[CUR];
+  const arr=CUR?arranjosDoLote(CUR):[];
+  const tag=document.getElementById("des-tag");
+  if(tag) tag.textContent = lt? (lt.lote+" · "+arr.length+" arranjo(s)") : "";
+  box.innerHTML = arr.length? arr.map(a=>desenhoCardHtml(a,"screen")).join("")
+    : `<div class="des-nada">Nenhuma peça com medida completa neste lote — sem desenho.</div>`;
+}
+// página de desenhos do lote para o PDF
+function desenhoPageHtml(key){
+  const lt=LOTES[key]; const arr=arranjosDoLote(key);
+  if(!lt||!arr.length) return "";
+  const now=new Date();
+  return `
+    <div class="rep-head">
+      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="rep-title">Desenho do lastro <span>· Lote ${esc(lt.lote)}</span></div>
+        <div class="rep-meta">1 exemplo de cada arranjo · ${arr.length} arranjo(s) · folga de ${(PARAMS.folga!=null?PARAMS.folga:100)} mm por ponta · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+      </div>
+    </div>
+    <div class="des-print">${arr.map(a=>desenhoCardHtml(a,"print")).join("")}</div>
+    <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · faixa pontilhada nas pontas = folga de segurança · faixa tracejada = sobra de tábua</div>`;
+}
+
 function renderCompLoteSel(){
   const sel=document.getElementById("comp-lote-sel"); if(!sel) return;
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
@@ -1308,7 +1443,11 @@ function renderTodosReport(keys){
   const el=document.getElementById("report-todos");
   let h="";
   if(keys.length>1) h+=`<div class="rep-page">${consolidadoHtml()}</div>`;
-  keys.forEach((k,i)=>{ h+=`<div class="rep-page">${loteReportHtml(k, "Lote "+LOTES[k].lote+(keys.length>1?` · ${i+1}/${keys.length}`:""))}</div>`; });
+  keys.forEach((k,i)=>{
+    h+=`<div class="rep-page">${loteReportHtml(k, "Lote "+LOTES[k].lote+(keys.length>1?` · ${i+1}/${keys.length}`:""))}</div>`;
+    const des=desenhoPageHtml(k);          // página com o desenho do lastro do lote
+    if(des) h+=`<div class="rep-page">${des}</div>`;
+  });
   el.innerHTML=h;
 }
 function imprimirTodosLotes(){
@@ -1412,7 +1551,9 @@ document.getElementById("btn-xlsx-sim").addEventListener("click",exportXlsx);
 // relatório de UM lote (o selecionado)
 document.getElementById("btn-pdf").addEventListener("click",()=>{
   if(!LOTES[CUR]){ alert("Importe um lote para gerar o relatório."); return; }
-  document.getElementById("report-todos").innerHTML=`<div class="rep-page">${loteReportHtml(CUR)}</div>`;
+  const des=desenhoPageHtml(CUR);
+  document.getElementById("report-todos").innerHTML=
+    `<div class="rep-page">${loteReportHtml(CUR)}</div>`+(des?`<div class="rep-page">${des}</div>`:"");
   imprimirComo(nomeLote(CUR), "printing-todos");
 });
 

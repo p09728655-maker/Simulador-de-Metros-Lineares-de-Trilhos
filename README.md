@@ -25,6 +25,10 @@ na tela e o simulador monta tudo:
 - **Parâmetros** — altura da pilha (padrão 1200 mm) e o **trilho disponível por unidade**
   (ex.: Unidade I = 116 m, Unidade II = 40 m → 156 m), usados para a **% de ocupação**.
 - **GERAL** — consolida todos os lotes importados (necessidade × disponível × ocupação).
+- **Desenho do lastro** — mostra **como as peças ficam deitadas na tábua**, vista de cima: a folga de
+  segurança de cada ponta, as peças encaixadas (`I × J`) e a **sobra de tábua**. Sai **1 exemplo de cada
+  arranjo** do lote (peças com a mesma tábua + mesma medida + mesmo encaixe entram no mesmo desenho) e
+  também **entra no PDF**, uma página por lote. Se a peça for mais larga que a tábua, o desenho avisa.
 - **Salvar / imprimir** — os botões ficam no **topo** da tela:
   - **Imprimir TODOS os lotes (PDF)** — um único PDF com o **resumo de todos os lotes** na 1ª página
     (consolidado + ocupação por lote e por unidade) e depois **uma página por lote**, com KPIs,
