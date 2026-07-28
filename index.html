@@ -120,6 +120,7 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .top-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
 /* desenho do lastro */
 .des-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:14px}
+@media(min-width:1400px){.des-grid{grid-template-columns:repeat(3,1fr)}}   /* 3 por fileira: desenho maior */
 .des-card{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px}
 .des-card .des-tit{font-family:var(--font-d);font-size:12px;color:var(--txt);margin-bottom:2px}
 .des-card .des-cod{font-family:var(--font-m,monospace);font-size:10px;color:var(--acc)}
@@ -316,6 +317,10 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="sec-sub">Como as peças ficam deitadas na tábua — <b>1 exemplo de cada</b> arranjo do lote.
         A faixa cinza de cada ponta é a <b>folga de segurança</b> (⚙ Cadastros) e a faixa listrada no fim é a
         <b>sobra de tábua</b> que não dá pra aproveitar.</div>
+      <div class="top-actions no-print">
+        <button class="linkbtn" id="btn-des-pdf">🖨️ Imprimir só os desenhos deste lote</button>
+        <button class="linkbtn" id="btn-des-pdf-todos">🖨️ Desenhos de todos os lotes</button>
+      </div>
       <div id="des-resumo" class="des-resumo no-print hidden"></div>
       <div id="desenhos" class="des-grid"></div>
     </section>
@@ -633,13 +638,16 @@ function apoiaNaTabua(J, pl, tLarg){
   const bal=balancoPorLado(J,pl,tLarg);
   return bal<=avancoLarg()+1e-9 && bal<=pl*(1-apoioMin()/100)+1e-9;
 }
+// avanço desta peça: o operador pode decidir peça a peça (null = padrão de ⚙ Cadastros)
+function avancoDe(row){ return row&&row.avanco!=null? Math.max(0,+row.avanco) : avancoComp(); }
+function folgaBase(){ return (PARAMS.folga!=null?PARAMS.folga:100); }
+function folgaEfDe(row){ return Math.max(0, folgaBase()-avancoDe(row)); }
 // comprimento aproveitável da tábua: desconta a folga de cada ponta, devolvendo o avanço permitido
-function compUtilDe(tComp){
-  const folga=(PARAMS.folga!=null?PARAMS.folga:100);
-  return Math.max(0,(tComp||0)-2*Math.max(0,folga-avancoComp()));
+function compUtilDe(tComp, row){
+  return Math.max(0,(tComp||0)-2*folgaEfDe(row));
 }
 function encaixesPossiveis(row, tComp, tLarg, forcado){
-  const compUtil=compUtilDe(tComp);
+  const compUtil=compUtilDe(tComp,row);
   const exc=excLarg();
   const tenta=(pc,pl,virada)=>{
     if(!pc||!pl||!tLarg) return null;
@@ -693,7 +701,7 @@ function calcRow(row){
   const O = (tComp/1000)*N;
   const sug=(row.comp||0)+400;
   const excesso=Math.max(0, J*pcLarg-(tLarg||0));
-  return {tComp,tLarg,I,J,K,M,N,O,sug,pcComp,pcLarg,virada:!!(or&&or.virada),excesso,cabe:!!or};
+  return {tComp,tLarg,I,J,K,M,N,O,sug,pcComp,pcLarg,virada:!!(or&&or.virada),excesso,cabe:!!or,folgaEf:folgaEfDe(row),avanco:avancoDe(row)};
 }
 // tábua sugerida menor e padronizada: a MENOR tábua (múltiplo do passo) que ainda encaixa o mesmo
 // nº de peças por lastro (I) da tábua atual — corta a sobra sem perder peças/lastro. Largura fixa 380.
@@ -708,8 +716,8 @@ function tabuaSugeridaPad(row){
   const cur=calcRow(row);
   const curComp=cur.tComp||0;                          // tábua atual (cadastrada/override)
   const pc=cur.pcComp||row.comp;                       // medida que fica no comprimento (peça em pé ou virada)
-  const folgaEf=Math.max(0,folga-avancoComp());        // folga que sobra depois do avanço permitido
-  const targetI=Math.max(1, Math.floor(compUtilDe(curComp)/pc) || 1);  // peças por lastro a preservar
+  const folgaEf=folgaEfDe(row);                        // folga que sobra depois do avanço permitido
+  const targetI=Math.max(1, Math.floor(compUtilDe(curComp,row)/pc) || 1);  // peças por lastro a preservar
   const p=passoSug();
   const tight=targetI*pc + 2*folgaEf + folgaSug();     // comprimento mínimo p/ encaixar targetI peças + folgas
   let L=Math.ceil(tight/p)*p;
@@ -853,13 +861,29 @@ function tabuaOptions(sel){
 // mostra quantas peças por lastro cada opção rende (curto na tabela, detalhado no desenho)
 function giroOptions(row, c, compacto){
   const v=row.giro||"auto";
-  const f=encaixesPossiveis(row,c.tComp,c.tLarg,true);
+  const f=encaixesPossiveis(row,c.tComp,c.tLarg,true);    // forçadas (o operador pode travar)
+  const ok=encaixesPossiveis(row,c.tComp,c.tLarg);        // viáveis (peça apoiada na tábua)
   const a=orientacaoAuto(row,c.tComp,c.tLarg);
-  const q=o=>o? (compacto?` · ${o.K}`:` (${o.K}/lastro${o.excesso>0.5?", passa "+Math.round(o.excesso):""})`)
-              : (compacto?" · —":" (não cabe)");
+  const q=(o,viavel)=>{
+    if(!o) return compacto?" · —":" (não cabe)";
+    if(!viavel) return compacto?` · ${o.K} sem apoio`:` (${o.K}/lastro — a peça fica sem apoio na tábua)`;
+    return compacto?` · ${o.K}`:` (${o.K}/lastro${o.excesso>0.5?", passa "+Math.round(o.excesso):""})`;
+  };
   const auto="Auto"+(a?(a.virada?(compacto?" (↻)":" → virada ↻"):(compacto?" (pé)":" → em pé")):"");
-  return [["auto",auto],["normal","Em pé"+q(f.normal)],["virada","Virada ↻"+q(f.virada)]]
+  return [["auto",auto],["normal","Em pé"+q(f.normal,!!ok.normal)],["virada","Virada ↻"+q(f.virada,!!ok.virada)]]
     .map(([val,lbl])=>`<option value="${val}" ${v===val?"selected":""}>${lbl}</option>`).join("");
+}
+// folga de cada ponta: cheia (sem avanço) ou reduzida pelo avanço — quem decide é o operador
+function folgaOptions(row, c){
+  const base=folgaBase(), av=avancoComp();
+  const opts=[{av:0, lbl:base+" mm (cheia)"}];
+  if(av>0) opts.push({av, lbl:(base-av)+" mm (avança "+av+")"});
+  const atual=avancoDe(row);
+  return opts.map(o=>{
+    const K=(()=>{ const f=encaixesPossiveis({...row, avanco:o.av}, c.tComp, c.tLarg);
+                   const x=orientacaoAuto({...row, avanco:o.av}, c.tComp, c.tLarg); return x?x.K:(f.normal?f.normal.K:0); })();
+    return `<option value="${o.av}" ${atual===o.av?"selected":""}>${o.lbl}${K?" · "+K+"/lastro":""}</option>`;
+  }).join("");
 }
 function unidadeOptions(selIdx){
   return (PARAMS.unidades||[]).map((u,i)=>`<option value="${i}" ${i===selIdx?"selected":""}>${esc(u.nome)}</option>`).join("");
@@ -912,10 +936,11 @@ function renderSim(){
     LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
   t.querySelectorAll("select[data-giro]").forEach(s=>s.addEventListener("change",e=>{
-    const i=+e.target.dataset.giro;
+    const i=+e.target.dataset.giro, y=window.scrollY;
     LOTES[CUR].rows[i].giro=e.target.value;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // novo giro → novo encaixe
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);
   }));
   t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
@@ -989,15 +1014,21 @@ function lastroSvg(r, c, tema){
     ? {tab:"#ffffff",tabL:"#999",folga:"#ececec",folgaL:"#aaa",pc:"#ffe2d4",pcL:"#FF5C1F",txt:"#444",cota:"#777",sobra:"#f4f4f4"}
     : {tab:"#141414",tabL:"#5a5a5a",folga:"#242424",folgaL:"#6a6a6a",pc:"rgba(255,92,31,.26)",pcL:"#FF5C1F",txt:"#b9b9b9",cota:"#8a8a8a",sobra:"#1b1b1b"};
   const folga=(PARAMS.folga!=null?PARAMS.folga:100);
-  const folgaEf=Math.max(0,folga-avancoComp());   // a peça pode avançar sobre a folga
+  const folgaEf=(c.folgaEf!=null?c.folgaEf:Math.max(0,folga-avancoComp()));   // a peça pode avançar sobre a folga
   const tC=+c.tComp||0, tL=+c.tLarg||0;
   if(!(tC&&tL&&r.comp&&r.larg)) return "";
-  const W=560, s=W/tC, H=Math.max(28, tL*s), BOT=16;
-  const fx=folgaEf*s;
+  const W=560;
   // medidas EFETIVAS da peça no lastro (já considerando se ela entra virada)
   const pC=+c.pcComp||r.comp, pL=+c.pcLarg||r.larg;
   const I=Math.max(0,Math.floor(c.I||0)), J=Math.max(0,Math.floor(c.J||0));
-  const usadoMM=I*pC, sobraMM=Math.max(0, compUtilDe(tC)-usadoMM);
+  // se a peça é mais comprida que a tábua, o desenho abre espaço p/ mostrar o que sobra pra fora
+  const compMM=Math.max(tC, I*pC+2*folgaEf), s=W/compMM;
+  const xTab=(W-tC*s)/2;                               // a tábua fica centrada no quadro
+  const H=Math.max(28, tL*s), BOT=16;
+  const fx=folgaEf*s;
+  const utilMM=Math.max(0,tC-2*folgaEf);
+  const usadoMM=I*pC, sobraMM=Math.max(0, utilMM-usadoMM);
+  const passaComp=Math.max(0, usadoMM-utilMM);          // quanto passa no comprimento
   // quanto as peças passam da largura da tábua (tolerado até o excesso permitido)
   const excMM=Math.max(0, J*pL-tL), excede=excMM>0.5;
   const foraTol=!c.cabe || !apoiaNaTabua(J,pL,tL);   // peça sem apoio suficiente na tábua
@@ -1006,36 +1037,42 @@ function lastroSvg(r, c, tema){
   const sobe=Math.max(0,(larguraPc-H)/2);
   const TOP=22+sobe;
   const yPc=TOP+(H-larguraPc)/2;                       // centraliza na largura
-  const xPc=fx+(compUtilDe(tC)*s-compPc)/2;            // centraliza no comprimento (dentro da área útil)
+  const xPc=xTab+fx+(utilMM*s-compPc)/2;                // centraliza no comprimento (dentro da área útil)
   const HD=Math.max(H, (yPc-TOP)+larguraPc);
   const t=(x,y,txt,anchor,size)=>`<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="${anchor||"middle"}" font-family="ui-monospace,monospace" font-size="${size||11}" fill="${cor.txt}">${esc(txt)}</text>`;
   let g="";
   // cota do comprimento da tábua
   const yCota=Math.min(TOP,yPc);   // acima de tudo que for desenhado
-  g+=`<line x1="0" y1="${yCota-8}" x2="${W}" y2="${yCota-8}" stroke="${cor.cota}" stroke-width="1"/>`
-   + `<line x1="0" y1="${yCota-12}" x2="0" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
-   + `<line x1="${W}" y1="${yCota-12}" x2="${W}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
-   + t(W/2, yCota-12, "tábua "+tC+" mm");
+  const xFim=xTab+tC*s;
+  g+=`<line x1="${xTab}" y1="${yCota-8}" x2="${xFim}" y2="${yCota-8}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<line x1="${xTab}" y1="${yCota-12}" x2="${xTab}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<line x1="${xFim}" y1="${yCota-12}" x2="${xFim}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
+   + t((xTab+xFim)/2, yCota-12, "tábua "+tC+" mm");
   // tábua
-  g+=`<rect x="0" y="${TOP}" width="${W}" height="${H}" fill="${cor.tab}" stroke="${cor.tabL}" stroke-width="1"/>`;
+  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="${cor.tab}" stroke="${cor.tabL}" stroke-width="1"/>`;
   // folga das 2 pontas
-  g+=`<rect x="0" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`
-   + `<rect x="${(W-fx).toFixed(1)}" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`;
+  g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`
+   + `<rect x="${(xFim-fx).toFixed(1)}" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`;
   const cabe=(txt,w,size)=>String(txt).length*(size||10)*0.62 <= w-4;   // texto só entra se couber na faixa
-  if(cabe(folgaEf,fx,10)){ g+=t(fx/2, TOP+H/2+3, String(folgaEf), "middle", 10) + t(W-fx/2, TOP+H/2+3, String(folgaEf), "middle", 10); }
+  if(cabe(folgaEf,fx,10)){ g+=t(xTab+fx/2, TOP+H/2+3, String(folgaEf), "middle", 10) + t(xFim-fx/2, TOP+H/2+3, String(folgaEf), "middle", 10); }
   // sobra de tábua — metade de cada lado, já que as peças ficam centralizadas
   if(sobraMM>0.5){
     const sw=(sobraMM*s)/2;
     const faixa=(x)=>`<rect x="${x.toFixed(1)}" y="${TOP}" width="${sw.toFixed(1)}" height="${H}" fill="${cor.sobra}" stroke="${cor.folgaL}" stroke-width=".8" stroke-dasharray="2 3"/>`;
-    g+=faixa(fx)+faixa(xPc+compPc);
+    g+=faixa(xTab+fx)+faixa(xPc+compPc);
     const lblS="sobra "+Math.round(sobraMM/2);   // só dentro da faixa se couber inteiro (senão vai no rodapé)
-    if(cabe(lblS,sw,10)) g+=t(fx+sw/2, TOP+H/2+3, lblS, "middle", 10)+t(xPc+compPc+sw/2, TOP+H/2+3, lblS, "middle", 10);
+    if(cabe(lblS,sw,10)) g+=t(xTab+fx+sw/2, TOP+H/2+3, lblS, "middle", 10)+t(xPc+compPc+sw/2, TOP+H/2+3, lblS, "middle", 10);
   }
   // bordas da tábua (p/ enxergar o quanto a peça passa de cada lado)
   if(excede){
     const cl=foraTol?"#c62828":"#e65100";
     g+=`<line x1="0" y1="${TOP}" x2="${W}" y2="${TOP}" stroke="${cl}" stroke-width="1.2" stroke-dasharray="5 3"/>`
      + `<line x1="0" y1="${TOP+H}" x2="${W}" y2="${TOP+H}" stroke="${cl}" stroke-width="1.2" stroke-dasharray="5 3"/>`;
+  }
+  // peça mais comprida que a tábua: marca as pontas da tábua
+  if(passaComp>0.5){
+    g+=`<line x1="${xTab}" y1="${TOP-3}" x2="${xTab}" y2="${TOP+H+3}" stroke="#c62828" stroke-width="1.2" stroke-dasharray="5 3"/>`
+     + `<line x1="${xFim}" y1="${TOP-3}" x2="${xFim}" y2="${TOP+H+3}" stroke="#c62828" stroke-width="1.2" stroke-dasharray="5 3"/>`;
   }
   // peças
   for(let j=0;j<J;j++) for(let i=0;i<I;i++){
@@ -1054,15 +1091,24 @@ function lastroSvg(r, c, tema){
     }
   }
   // cota da largura + avisos (peça virada / quanto passa da tábua)
-  g+=t(W, TOP+HD+11, "largura "+tL+" mm", "end", 10)
-   + t(0, TOP+HD+11, I+" × "+J+" = "+(I*J)+" peça(s) por lastro"+(c.virada?" · peça VIRADA ↻":"")+(sobraMM>0.5?" · sobra "+Math.round(sobraMM)+" mm":""), "start", 10);
+  g+=t(xFim, TOP+HD+11, "largura "+tL+" mm", "end", 10)
+   + (sobraMM>0.5? t(xTab, TOP+HD+11, "sobra "+Math.round(sobraMM)+" mm", "start", 10) : "");
+  let yAviso=TOP+HD+24, nAvisos=0;
   if(excede){
     const bal=excMM/2, apoio=Math.max(0,pL-bal);
-    g+=`<text x="0" y="${TOP+HD+24}" font-family="ui-monospace,monospace" font-size="10" fill="${foraTol?"#c62828":"#e65100"}">`
+    g+=`<text x="${xTab}" y="${yAviso}" font-family="ui-monospace,monospace" font-size="10" fill="${foraTol?"#c62828":"#e65100"}">`
       +`${foraTol?"⚠ ":""}passa ${Math.round(excMM)} mm da largura — ${fmt(bal)} mm de cada lado `
       +`(a peça da ponta apoia ${fmt(apoio)} dos ${pL} mm${foraTol?" — sem apoio suficiente":""})</text>`;
+    yAviso+=13; nAvisos++;
   }
-  return `<svg viewBox="0 0 ${W} ${TOP+HD+BOT+(excede?14:0)}" preserveAspectRatio="xMidYMid meet" role="img">${g}</svg>`;
+  // peça mais comprida que a tábua — nenhum arranjo é possível nessa tábua
+  if(passaComp>0.5){
+    g+=`<text x="${xTab}" y="${yAviso}" font-family="ui-monospace,monospace" font-size="10" fill="#c62828">`
+      +`⚠ a peça passa ${Math.round(passaComp)} mm do comprimento útil — precisa de tábua de pelo menos `
+      +`${Math.ceil((pC+2*folgaEf)/5)*5} mm</text>`;
+    nAvisos++;
+  }
+  return `<svg viewBox="0 0 ${W} ${TOP+HD+BOT+nAvisos*13}" preserveAspectRatio="xMidYMid meet" role="img">${g}</svg>`;
 }
 // agrupa as peças do lote por arranjo igual (mesma tábua + mesma peça + mesmo encaixe) → "1 exemplo de cada"
 function arranjosDoLote(key){
@@ -1071,53 +1117,62 @@ function arranjosDoLote(key){
   lt.rows.forEach((r,idx)=>{
     if(!(r.comp&&r.larg&&r.alt)) return;
     const c=calcRow(r);
-    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}`;
+    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}|f${c.folgaEf}`;
     const hit=map.get(k);
     if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); hit.idxs.push(idx); }
     else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx]});
   });
-  // metros de esteira que o arranjo consome em cada orientação (p/ mostrar a economia do giro)
+  // metros que o arranjo consome em cada orientação — SÓ orientação viável entra na conta;
+  // a que deixa a peça sem apoio na tábua fica de fora (não é opção de economia)
   const arr=[...map.values()];
   for(const a of arr){
-    a.oNormal=0; a.oVirada=0;
-    for(const i of a.idxs){
-      const row=lt.rows[i];
-      a.oNormal += calcRow({...row, giro:"normal", I:null, J:null}).O;
-      a.oVirada += calcRow({...row, giro:"virada", I:null, J:null}).O;
-    }
-    a.oMelhor=Math.min(a.oNormal,a.oVirada);
-    a.economia=a.O-a.oMelhor;                       // quanto ainda dá pra economizar neste arranjo
-    a.melhorGiro=a.oVirada<a.oNormal?"virada":"normal";
+    a.oNormal=metrosNaOrientacao(lt,a.idxs,"normal");
+    a.oVirada=metrosNaOrientacao(lt,a.idxs,"virada");
+    const cand=[["normal",a.oNormal],["virada",a.oVirada]].filter(([,o])=>o!=null);
+    if(cand.length){
+      cand.sort((x,y)=>x[1]-y[1]);
+      a.melhorGiro=cand[0][0]; a.oMelhor=cand[0][1];
+      a.economia=a.O-a.oMelhor;
+    } else { a.melhorGiro=null; a.oMelhor=a.O; a.economia=0; }
   }
-  return arr.sort((a,b)=>b.O-a.O);
+  // ordem estável (a mesma da tabela) — girar uma peça não embaralha os desenhos
+  return arr.sort((a,b)=>a.idxs[0]-b.idxs[0]);
+}
+// metros de esteira das peças `idxs` numa orientação; null se a orientação não é viável
+function metrosNaOrientacao(lt, idxs, giro){
+  let tot=0;
+  for(const i of idxs){
+    const row=lt.rows[i]; if(!row) continue;
+    const c=calcRow(row);
+    const f=encaixesPossiveis(row,c.tComp,c.tLarg);        // sem forçar: só o que apoia na tábua
+    const or=giro==="virada"?f.virada:f.normal;
+    if(!or) return null;
+    const M=row.alt>0? camadasFor(row.alt)*or.K : 0;
+    const N=M>0? Math.ceil(row.qty/M) : 0;
+    tot += (c.tComp/1000)*N;
+  }
+  return tot;
 }
 function desenhoCardHtml(a, tema, ai){
   const {r,c}=a;
   const svg=lastroSvg(r,c,tema);
   if(!svg) return "";
-  const outros=a.cods.length>1?` <span style="opacity:.7">(+${a.cods.length-1} peça(s) com o mesmo arranjo)</span>`:"";
-  const cam=camadasFor(r.alt);
-  // na tela dá pra girar a peça direto no desenho (vale p/ todas as peças do arranjo)
+  const outros=a.cods.length>1?` <span style="opacity:.6">+${a.cods.length-1}</span>`:"";
+  // controles (só na tela) — a economia aparece apenas quando há ganho de verdade
   const eco = a.economia>0.005
-    ? `<span class="des-eco ok">girando ↻ economiza ${fmt(a.economia)} m</span>`
-    : `<span class="des-eco">melhor giro já aplicado</span>`;
+    ? `<span class="des-eco ok">${a.melhorGiro==="virada"?"↻":"▭"} −${fmt(a.economia)} m</span>` : "";
   const giro = tema==="print" ? "" :
     `<div class="des-giro no-print">
-      <label>girar:
-        <select class="cell-sel" data-giro-arr="${ai}" title="Aplica a todas as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
-      </label>
-      <span class="des-eco-cmp">em pé ${fmt(a.oNormal)} m · virada ↻ ${fmt(a.oVirada)} m</span>
+      <select class="cell-sel" data-giro-arr="${ai}" title="Como a peça entra no lastro — vale para as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
+      <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento — você decide se a peça avança sobre ela">${folgaOptions(r,c)}</select>
       ${eco}
     </div>`;
   return `<div class="${tema==="print"?"des-box":"des-card"}">
     <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}</div>
     ${giro}
     ${svg}
-    <div class="des-sub">Peça ${r.comp}×${r.larg}×${r.alt} mm · tábua ${c.tComp}×${c.tLarg} mm ·
-      ${c.virada?`<b style="color:#e65100">virada ↻</b> (${c.pcComp}×${c.pcLarg} no lastro) · `:""}
-      ${c.excesso>0.5?`passa <b>${Math.round(c.excesso)} mm</b> da largura · `:""}
-      <b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro ·
-      ${cam} camadas → <b>${fmtInt(c.M)}</b> peças/pilha · ${fmtInt(a.qty)} peças = <b>${fmtInt(a.N)}</b> pilha(s) ·
+    <div class="des-sub"><b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro ·
+      <b>${fmtInt(c.M)}</b> pç/pilha · ${fmtInt(a.qty)} peças = <b>${fmtInt(a.N)}</b> pilha(s) ·
       <b>${fmt(a.O)} m</b> de esteira</div>
   </div>`;
 }
@@ -1142,19 +1197,32 @@ function renderDesenhos(){
     : `<div class="des-nada">Nenhuma peça com medida completa neste lote — sem desenho.</div>`;
   const btn=document.getElementById("btn-melhor-giro");
   if(btn) btn.addEventListener("click",()=>{
+    const y=window.scrollY;
     for(const a of arr){
-      if(!(a.economia>0.005)) continue;
+      if(!(a.economia>0.005) || !a.melhorGiro) continue;   // só giro viável (peça apoiada)
       for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
         row.giro=a.melhorGiro; row.I=null; row.J=null; }
     }
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);
   });
+  // folga pelo desenho: o operador escolhe se a peça avança sobre a folga
+  box.querySelectorAll("select[data-folga-arr]").forEach(s=>s.addEventListener("change",e=>{
+    const a=arr[+e.target.dataset.folgaArr]; if(!a) return;
+    const y=window.scrollY, av=+e.target.value;
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+      row.avanco=av; row.I=null; row.J=null; }
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);
+  }));
   // girar pelo desenho: aplica o giro a todas as peças daquele arranjo
   box.querySelectorAll("select[data-giro-arr]").forEach(s=>s.addEventListener("change",e=>{
     const a=arr[+e.target.dataset.giroArr]; if(!a) return;
+    const y=window.scrollY;
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
       row.giro=e.target.value; row.I=null; row.J=null; }
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);   // mantém a tela no mesmo lugar
   }));
 }
 // página de desenhos do lote para o PDF
@@ -1677,6 +1745,20 @@ function imprimirTodosLotes(){
   imprimirComo(nomeLotes(keys), "printing-todos");
 }
 document.getElementById("btn-pdf-todos").addEventListener("click",imprimirTodosLotes);
+// só os desenhos do lastro (sem as tabelas do relatório)
+document.getElementById("btn-des-pdf").addEventListener("click",()=>{
+  const des=CUR?desenhoPageHtml(CUR):"";
+  if(!des){ alert("Nenhum desenho para imprimir neste lote."); return; }
+  document.getElementById("report-todos").innerHTML=`<div class="rep-page">${des}</div>`;
+  imprimirComo("DESENHOS "+nomeLote(CUR), "printing-todos");
+});
+document.getElementById("btn-des-pdf-todos").addEventListener("click",()=>{
+  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
+  const paginas=keys.map(k=>desenhoPageHtml(k)).filter(Boolean).map(h=>`<div class="rep-page">${h}</div>`);
+  if(!paginas.length){ alert("Nenhum desenho para imprimir."); return; }
+  document.getElementById("report-todos").innerHTML=paginas.join("");
+  imprimirComo("DESENHOS "+nomeLotes(keys), "printing-todos");
+});
 document.getElementById("btn-pdf-todos-2").addEventListener("click",imprimirTodosLotes);
 
 // relatório de impressão da comparação de tábuas (lote atual)
