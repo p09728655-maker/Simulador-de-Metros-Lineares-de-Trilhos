@@ -42,6 +42,8 @@ header{display:flex;align-items:center;gap:14px;height:54px;padding:0 18px;backg
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 main{flex:1;padding:20px;max-width:min(1760px,96vw);width:100%;margin:0 auto}
+/* o simulador tem tabela larga: usa a tela toda, sem a faixa preta das laterais */
+body.wide main{max-width:none;padding:20px 14px}
 
 #drop{border:1.5px dashed var(--border);border-radius:12px;background:var(--surface);
   padding:56px 24px;text-align:center;cursor:pointer;transition:.2s;margin-top:24px}
@@ -1782,9 +1784,12 @@ function setView(v){
     if(view) view.classList.toggle("hidden", x!==v);
     if(nav) nav.classList.toggle("active", x===v);
   });
+  // telas de tabela larga usam a tela inteira (sem a faixa preta nas laterais)
+  document.body.classList.toggle("wide", v==="sim"||v==="comp");
   if(v==="cons") renderConsView();
   if(v==="comp"){ renderCompLoteSel(); renderComparativo(); }
 }
+setView("sim");
 document.getElementById("nav-sim").addEventListener("click",()=>setView("sim"));
 document.getElementById("nav-comp").addEventListener("click",()=>setView("comp"));
 document.getElementById("nav-cons").addEventListener("click",()=>setView("cons"));
