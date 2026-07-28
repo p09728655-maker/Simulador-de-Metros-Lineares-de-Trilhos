@@ -649,10 +649,12 @@ function sugTabua(row){
 }
 // cor de identificação de cada medida de tábua — cores simples, de pintar a borda mesmo
 const CORES_TABUA=[
-  {n:"Azul",     h:"#1565C0"}, {n:"Verde",   h:"#2E7D32"}, {n:"Vermelho", h:"#C62828"},
-  {n:"Amarelo",  h:"#F9A825"}, {n:"Laranja", h:"#EF6C00"}, {n:"Roxo",     h:"#6A1B9A"},
-  {n:"Rosa",     h:"#D81B60"}, {n:"Marrom",  h:"#6D4C41"}, {n:"Preto",    h:"#111111"},
-  {n:"Branco",   h:"#FFFFFF"}, {n:"Cinza",   h:"#757575"},
+  {n:"Azul",       h:"#1565C0"}, {n:"Verde",       h:"#2E7D32"}, {n:"Vermelho", h:"#C62828"},
+  {n:"Amarelo",    h:"#F9A825"}, {n:"Laranja",     h:"#EF6C00"}, {n:"Roxo",     h:"#6A1B9A"},
+  {n:"Rosa",       h:"#D81B60"}, {n:"Marrom",      h:"#6D4C41"}, {n:"Preto",    h:"#111111"},
+  {n:"Branco",     h:"#FFFFFF"}, {n:"Cinza",       h:"#757575"}, {n:"Azul claro", h:"#4FC3F7"},
+  {n:"Verde claro",h:"#9CCC65"}, {n:"Turquesa",    h:"#00897B"}, {n:"Bege",     h:"#D7B98E"},
+  {n:"Vinho",      h:"#7B1E3A"},
 ];
 function corPadraoTabua(i){ const c=CORES_TABUA[((i||0)%CORES_TABUA.length+CORES_TABUA.length)%CORES_TABUA.length]; return c.n; }
 function corInfo(nome){
