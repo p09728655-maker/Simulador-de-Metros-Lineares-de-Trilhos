@@ -29,6 +29,9 @@ na tela e o simulador monta tudo:
   **folga** de cada ponta (cheia, ex. 100 mm, ou reduzida pelo avanço, ex. 75 mm) — quem decide é você.
   A economia do giro aparece só quando existe ganho real; giros que deixariam a peça **sem apoio**
   na tábua não entram na conta nem no botão **“Aplicar o melhor giro”**.
+- **Tábuas do lote** — resumo de **quantas tábuas de cada medida** o lote consome (cada pilha ocupa
+  uma tábua no trilho), com itens, peças, metros e o % do lote. Serve como lista de separação para o
+  corte e sai também no **PDF do lote** e na **impressão dos desenhos**.
 - **Imprimir só os desenhos** — botões na própria seção, para o lote atual ou para todos os lotes.
 - No desenho as peças ficam **centralizadas na tábua**: a sobra (ou o que passa) é dividida
   igualmente entre os dois lados, nos dois sentidos.

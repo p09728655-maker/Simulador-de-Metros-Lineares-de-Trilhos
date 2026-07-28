@@ -312,6 +312,14 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
     </section>
 
     <!-- Desenho do lastro -->
+    <!-- Tábuas que o lote vai consumir -->
+    <section id="sec-tabuas-lote">
+      <h2>Tábuas do lote <span class="tag" id="tbl-tag"></span></h2>
+      <div class="sec-sub">Quantas tábuas de cada medida o lote consome — <b>cada pilha ocupa uma tábua</b> no trilho.
+        Serve como lista de separação para o corte.</div>
+      <div class="tbl-wrap"><table id="tbl-tabuas-lote"></table></div>
+    </section>
+
     <section id="sec-desenho">
       <h2>Desenho do lastro <span class="tag" id="des-tag"></span></h2>
       <div class="sec-sub">Como as peças ficam deitadas na tábua — <b>1 exemplo de cada</b> arranjo do lote.
@@ -894,7 +902,7 @@ function renderSim(){
   // cabeçalho usado se o usuário imprimir a tela direto (Ctrl+P)
   document.getElementById("ph-lote").textContent = lt? lt.lote : "";
   document.getElementById("ph-meta").textContent = "Gerado em "+new Date().toLocaleString("pt-BR");
-  if(!lt){ t.innerHTML=""; renderDesenhos(); return; }
+  if(!lt){ t.innerHTML=""; renderTabuasLote(); renderDesenhos(); return; }
   let h="<thead><tr>"
     +"<th class='l'>Peça (código · descrição)</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>"
     +"<th>Sug. tábua</th><th class='l'>Tábua</th><th class='l'>Giro</th><th class='l'>Unidade</th><th>Qtde comp<br>lastro (I)</th><th>Qtde larg<br>lastro (J)</th><th>Total<br>(K)</th>"
@@ -951,6 +959,7 @@ function renderSim(){
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
+  renderTabuasLote(); // resumo das tábuas do lote
   renderDesenhos();   // o desenho do lastro acompanha a tabela
 }
 function renderGeral(){
@@ -984,6 +993,42 @@ function renderGeral(){
     for(const v of gU) h+=`<td>${fmt(v)}</td>`;
     h+=`<td colspan='3'></td></tr>`;
   }
+  h+="</tbody>"; t.innerHTML=h;
+}
+/* ====== tábuas que o lote consome (cada pilha = 1 tábua no trilho) ====== */
+// key = lote; null = todos os lotes importados
+function tabuasUsadas(key){
+  const keys = key==null ? Object.keys(LOTES) : [key];
+  const map=new Map();
+  for(const k of keys){
+    const lt=LOTES[k]; if(!lt) continue;
+    for(const r of lt.rows){
+      const c=calcRow(r); if(!c.tComp) continue;
+      const kk=c.tComp+"x"+c.tLarg;
+      const hit=map.get(kk) || {comp:c.tComp, larg:c.tLarg, itens:0, qty:0, tabuas:0, O:0};
+      hit.itens++; hit.qty+=r.qty; hit.tabuas+=c.N; hit.O+=c.O;
+      map.set(kk,hit);
+    }
+  }
+  return [...map.values()].sort((a,b)=>a.comp-b.comp||a.larg-b.larg);
+}
+function renderTabuasLote(){
+  const t=document.getElementById("tbl-tabuas-lote"); if(!t) return;
+  const lista=CUR?tabuasUsadas(CUR):[];
+  const tag=document.getElementById("tbl-tag");
+  const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
+  if(tag) tag.textContent = CUR&&LOTES[CUR] ? (LOTES[CUR].lote+" · "+fmtInt(totT)+" tábua(s) em "+lista.length+" medida(s)") : "";
+  let h="<thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros de esteira</th><th>% do lote</th></tr></thead><tbody>";
+  for(const x of lista){
+    h+=`<tr><td class='l mono'>${x.comp} × ${x.larg}</td>
+      <td class='num'><b>${fmtInt(x.tabuas)}</b></td>
+      <td class='num'>${fmtInt(x.itens)}</td>
+      <td class='num'>${fmtInt(x.qty)}</td>
+      <td class='num'>${fmt(x.O)}</td>
+      <td class='num'>${totO>0?fmt(x.O/totO*100)+"%":"—"}</td></tr>`;
+  }
+  if(!lista.length) h+="<tr><td class='l' colspan='6' style='color:var(--txt2);padding:14px'>Nenhuma peça neste lote.</td></tr>";
+  else h+=`<tr class='trtot'><td class='l'>Total (${lista.length} medida(s))</td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr>`;
   h+="</tbody>"; t.innerHTML=h;
 }
 function renderUnid(){
@@ -1225,6 +1270,20 @@ function renderDesenhos(){
     window.scrollTo(0,y);   // mantém a tela no mesmo lugar
   }));
 }
+// tabela "tábuas do lote" para os relatórios em PDF
+function tabuasTabelaHtml(key){
+  const lista=tabuasUsadas(key); if(!lista.length) return "";
+  const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
+  let r="";
+  for(const x of lista) r+=`<tr><td class='l'>${x.comp} × ${x.larg}</td><td>${fmtInt(x.tabuas)}</td>`
+    +`<td>${fmtInt(x.itens)}</td><td>${fmtInt(x.qty)}</td><td>${fmt(x.O)}</td>`
+    +`<td>${totO>0?fmt(x.O/totO*100)+"%":"—"}</td></tr>`;
+  return `<div class="rep-ctitle">Tábuas do lote — ${fmtInt(totT)} tábua(s) em ${lista.length} medida(s)</div>
+    <table class="rep-tbl">
+      <thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros</th><th>% do lote</th></tr></thead>
+      <tbody>${r}<tr class="rep-tot"><td class='l'>Total</td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr></tbody>
+    </table>`;
+}
 // página de desenhos do lote para o PDF
 function desenhoPageHtml(key){
   const lt=LOTES[key]; const arr=arranjosDoLote(key);
@@ -1235,9 +1294,10 @@ function desenhoPageHtml(key){
       <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
       <div>
         <div class="rep-title">Desenho do lastro <span>· Lote ${esc(lt.lote)}</span></div>
-        <div class="rep-meta">1 exemplo de cada arranjo · ${arr.length} arranjo(s) · folga de ${(PARAMS.folga!=null?PARAMS.folga:100)} mm por ponta · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+        <div class="rep-meta">1 exemplo de cada arranjo · ${arr.length} arranjo(s) · folga de ${folgaBase()} mm por ponta (avanço até ${avancoComp()} mm) · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
       </div>
     </div>
+    ${tabuasTabelaHtml(key)}
     <div class="des-print">${arr.map(a=>desenhoCardHtml(a,"print")).join("")}</div>
     <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · faixa pontilhada nas pontas = folga de segurança · faixa tracejada = sobra de tábua</div>`;
 }
@@ -1716,6 +1776,7 @@ function loteReportHtml(key, titulo){
       <thead><tr><th class='l'>Unidade</th><th class='l'>Material</th><th>Peças</th><th>Pilhas</th><th>Necessidade (m)</th><th>Disponível (m)</th><th>Ocupação</th><th class='l'>Status</th></tr></thead>
       <tbody>${ur||"<tr><td class='l' colspan='8'>Nenhuma unidade cadastrada.</td></tr>"}</tbody>
     </table>
+    ${tabuasTabelaHtml(key)}
     <div class="rep-ctitle">Simulação do lote (${lt.rows.length} itens)</div>
     <table class="rep-tbl rep-tbl-sm">
       <thead><tr><th class='l'>Código</th><th class='l'>Descrição</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>
