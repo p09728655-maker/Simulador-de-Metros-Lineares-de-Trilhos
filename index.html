@@ -1161,6 +1161,15 @@ function lastroSvg(r, c, tema){
    + `<rect x="${(xFim-fx).toFixed(1)}" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`;
   const cabe=(txt,w,size)=>String(txt).length*(size||10)*0.62 <= w-4;   // texto só entra se couber na faixa
   if(cabe(folgaEf,fx,10)){ g+=t(xTab+fx/2, TOP+H/2+3, String(folgaEf), "middle", 10) + t(xFim-fx/2, TOP+H/2+3, String(folgaEf), "middle", 10); }
+  // avanço usado: marca onde terminaria a folga cheia — a faixa entre as duas é o que a peça avançou
+  const avUsado=Math.max(0, folgaBase()-folgaEf);
+  if(avUsado>0.5){
+    const xa1=xTab+folgaBase()*s, xa2=xFim-folgaBase()*s, cl="#e65100";
+    g+=`<line x1="${xa1.toFixed(1)}" y1="${TOP}" x2="${xa1.toFixed(1)}" y2="${TOP+H}" stroke="${cl}" stroke-width="1" stroke-dasharray="3 3"/>`
+     + `<line x1="${xa2.toFixed(1)}" y1="${TOP}" x2="${xa2.toFixed(1)}" y2="${TOP+H}" stroke="${cl}" stroke-width="1" stroke-dasharray="3 3"/>`
+     + `<text x="${xTab+fx+ (avUsado*s)/2}" y="${TOP+H-6}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="${cl}">+${avUsado}</text>`
+     + `<text x="${xFim-fx-(avUsado*s)/2}" y="${TOP+H-6}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="${cl}">+${avUsado}</text>`;
+  }
   // sobra de tábua — metade de cada lado, já que as peças ficam centralizadas
   if(sobraMM>0.5){
     const sw=(sobraMM*s)/2;
@@ -1212,7 +1221,8 @@ function lastroSvg(r, c, tema){
    + `<line x1="${xL-4}" y1="${TOP}" x2="${xL+4}" y2="${TOP}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xL-4}" y1="${TOP+H}" x2="${xL+4}" y2="${TOP+H}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<text x="${xL+13}" y="${TOP+H/2}" text-anchor="middle" transform="rotate(90 ${xL+13} ${TOP+H/2})" font-family="ui-monospace,monospace" font-size="10" fill="${cor.txt}">largura da tábua ${tL} mm</text>`;
-  if(sobraMM>0.5) g+=t(xTab, TOP+HD+11, "sobra "+Math.round(sobraMM)+" mm no comprimento", "start", 10);
+  const legFolga="folga "+folgaEf+" mm/ponta"+(avUsado>0.5?" (avanço +"+avUsado+")":" (cheia)");
+  g+=t(xTab, TOP+HD+11, (sobraMM>0.5? "sobra "+Math.round(sobraMM)+" mm no comprimento · " : "")+legFolga, "start", 10);
   let yAviso=TOP+HD+24, nAvisos=0;
   if(excede){
     const bal=excMM/2, apoio=Math.max(0,pL-bal);
@@ -1394,7 +1404,7 @@ function desenhoPageHtml(key){
       <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
       <div>
         <div class="rep-title">Desenho do lastro <span>· Lote ${esc(lt.lote)}</span></div>
-        <div class="rep-meta">${esc(sub)} · folga de ${folgaBase()} mm por ponta (avanço até ${avancoComp()} mm) · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+        <div class="rep-meta">${esc(sub)} · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
       </div>
     </div>`;
   const rodape=`<div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · faixa pontilhada nas pontas = folga de segurança · faixa tracejada = sobra de tábua</div>`;
@@ -1403,8 +1413,11 @@ function desenhoPageHtml(key){
     const lista=porUnid.get(ui);
     const nome=((PARAMS.unidades||[])[ui]||{}).nome||"Sem unidade";
     const tab=lista.reduce((s,a)=>s+a.N,0), met=lista.reduce((s,a)=>s+a.O,0), pc=lista.reduce((s,a)=>s+a.qty,0);
+    // folgas realmente usadas nesta unidade (com o avanço aplicado em cada arranjo)
+    const folgas=[...new Set(lista.map(a=>a.c.folgaEf))].sort((x,y)=>y-x)
+      .map(f=>f+" mm"+(folgaBase()-f>0.5?" (avanço "+(folgaBase()-f)+")":" (cheia)")).join(" · ");
     out+=`<div class="rep-page">
-      ${cabec(nome+" · 1 exemplo de cada arranjo · "+lista.length+" arranjo(s)")}
+      ${cabec(nome+" · 1 exemplo de cada arranjo · "+lista.length+" arranjo(s) · folga por ponta: "+folgas)}
       <div class="rep-kpis">
         <div><span>Unidade</span><b>${esc(nome)}</b></div>
         <div><span>Arranjos</span><b>${lista.length}</b></div>
