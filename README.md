@@ -15,8 +15,12 @@ na tela e o simulador monta tudo:
   que comporta a peça (peça + 400 mm); você pode trocar a qualquer momento.
 - **Encaixe em pé ou virada** — o simulador testa as **duas orientações** da peça na tábua e fica com a
   que rende **mais peças por lastro** (coluna **Giro**: `Auto` · `Em pé` · `Virada ↻`, travável por peça).
-  Ex.: `417×141` numa tábua `1200×500` → **virada**: 7 por lastro em vez de 6. Em ⚙ Cadastros dá pra
-  permitir que a peça **passe um pouco da largura** da tábua (padrão 0 mm = não pode passar).
+  Ex.: `417×141` numa tábua `1200×500` → **virada**: 7 por lastro em vez de 6. Travar `Em pé`/`Virada`
+  vale mesmo quando a peça passa da tábua — o desenho mostra quanto passa.
+- **Avanço permitido** (⚙ Cadastros, padrão **25 mm de cada lado**):
+  - *no comprimento* — a peça avança sobre a folga de segurança (folga 100 − avanço 25 = **75 reais**).
+    Ex.: `350×380` na tábua `1200` → `3 × 350 = 1050` cabe, **3 por lastro** em vez de 2.
+  - *na largura* — quanto a peça pode passar da tábua em cada lado (2 × 25 = 50 no total).
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
   `K = I×J`, peças por pilha `M = ARREDONDAR.BAIXO(altura da pilha / ALT × K)`,
   nº de pilhas `N = ARREDONDAR.CIMA(QTDE / M)` e **metros de esteira `O = (comp da tábua / 1000) × N`**.

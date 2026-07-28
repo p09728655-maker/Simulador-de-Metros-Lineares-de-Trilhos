@@ -321,8 +321,12 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
             <input type="number" id="p-folga" min="0" step="10" title="folga de cada ponta do comprimento p/ não enroscar no trilho">
           </div>
           <div class="fld">
-            <label>Excesso na largura (mm)</label>
-            <input type="number" id="p-exc-larg" min="0" step="5" title="quanto a peça pode passar da largura da tábua (ex.: 2 peças de 200 = 400 numa tábua de 380 → passa 20 mm)">
+            <label>Avanço no comprimento (mm/ponta)</label>
+            <input type="number" id="p-avanco" min="0" step="5" title="quanto a peça pode avançar sobre a folga em cada ponta (folga 100 − avanço 25 = 75 de folga real)">
+          </div>
+          <div class="fld">
+            <label>Avanço na largura (mm/lado)</label>
+            <input type="number" id="p-exc-larg" min="0" step="5" title="quanto a peça pode passar da tábua em cada lado da largura">
           </div>
           <div id="unidades-wrap" class="row" style="gap:12px"></div>
           <button class="linkbtn" id="btn-add-unid" style="margin-bottom:1px">+ Unidade</button>
@@ -592,15 +596,25 @@ function camadasFor(esp){
    e ficar com a que rende mais peças por lastro.
    Ex.: 1110×200 na tábua 1600×380 → 2 na largura (400, passa 20 mm).
         417×141 na tábua 1200×380 → virada: 7 no comprimento (passa 37 mm). */
-const EXC_LARG_PADRAO=0;   // mm que a peça pode passar da largura da tábua (0 = não pode passar)
-function excLarg(){ return PARAMS.excLarg!=null? Math.max(0,+PARAMS.excLarg) : EXC_LARG_PADRAO; }
-function encaixesPossiveis(row, tComp, tLarg){
+const AVANCO_PADRAO=25;    // mm que a peça pode avançar de cada lado (comprimento e largura)
+// avanço no COMPRIMENTO: a peça entra um pouco na faixa de folga (folga 100 − avanço 25 = 75 reais)
+function avancoComp(){ return PARAMS.avancoComp!=null? Math.max(0,+PARAMS.avancoComp) : AVANCO_PADRAO; }
+// avanço na LARGURA: quanto a peça pode passar da tábua em CADA lado
+function avancoLarg(){ return PARAMS.excLarg!=null? Math.max(0,+PARAMS.excLarg) : AVANCO_PADRAO; }
+function excLarg(){ return 2*avancoLarg(); }   // total tolerado na largura (os dois lados)
+// comprimento aproveitável da tábua: desconta a folga de cada ponta, devolvendo o avanço permitido
+function compUtilDe(tComp){
   const folga=(PARAMS.folga!=null?PARAMS.folga:100);
-  const compUtil=Math.max(0,(tComp||0)-2*folga);
+  return Math.max(0,(tComp||0)-2*Math.max(0,folga-avancoComp()));
+}
+function encaixesPossiveis(row, tComp, tLarg, forcado){
+  const compUtil=compUtilDe(tComp);
   const exc=excLarg();
   const tenta=(pc,pl,virada)=>{
     if(!pc||!pl||!tLarg) return null;
-    const I=Math.floor(compUtil/pc), J=Math.floor((tLarg+exc)/pl);
+    let I=Math.floor(compUtil/pc), J=Math.floor((tLarg+exc)/pl);
+    // giro travado na mão: vale a escolha do operador mesmo que a peça passe da tábua
+    if(forcado){ I=Math.max(1,I); J=Math.max(1,J); }
     if(I<1||J<1) return null;
     return {I,J,K:I*J,comp:pc,larg:pl,virada,excesso:Math.max(0,J*pl-tLarg)};
   };
@@ -609,10 +623,16 @@ function encaixesPossiveis(row, tComp, tLarg){
 // escolhe a orientação: respeita o giro travado na peça; no "auto" fica com a que
 // rende mais peças por lastro (empate → a que passa menos da tábua)
 function orientacaoDe(row, tComp, tLarg){
-  const {normal,virada}=encaixesPossiveis(row,tComp,tLarg);
   const g=row.giro||"auto";
-  if(g==="normal") return normal;
-  if(g==="virada") return virada;
+  if(g==="normal"||g==="virada"){
+    const f=encaixesPossiveis(row,tComp,tLarg,true);
+    return g==="normal"? f.normal : f.virada;
+  }
+  return orientacaoAuto(row,tComp,tLarg);
+}
+// o que o "Auto" escolheria, ignorando o giro travado na peça
+function orientacaoAuto(row, tComp, tLarg){
+  const {normal,virada}=encaixesPossiveis(row,tComp,tLarg);
   if(normal&&virada){
     if(virada.K>normal.K) return virada;
     if(virada.K===normal.K && virada.excesso<normal.excesso) return virada;
@@ -653,9 +673,10 @@ function tabuaSugeridaPad(row){
   const cur=calcRow(row);
   const curComp=cur.tComp||0;                          // tábua atual (cadastrada/override)
   const pc=cur.pcComp||row.comp;                       // medida que fica no comprimento (peça em pé ou virada)
-  const targetI=Math.max(1, Math.floor((curComp-2*folga)/pc) || 1);  // peças por lastro a preservar
+  const folgaEf=Math.max(0,folga-avancoComp());        // folga que sobra depois do avanço permitido
+  const targetI=Math.max(1, Math.floor(compUtilDe(curComp)/pc) || 1);  // peças por lastro a preservar
   const p=passoSug();
-  const tight=targetI*pc + 2*folga + folgaSug();       // comprimento mínimo p/ encaixar targetI peças + folgas
+  const tight=targetI*pc + 2*folgaEf + folgaSug();     // comprimento mínimo p/ encaixar targetI peças + folgas
   let L=Math.ceil(tight/p)*p;
   if(curComp>0) L=Math.min(L, curComp);                // nunca maior que a tábua atual (garante não piorar)
   return { comp:L, larg:largSug() };
@@ -699,7 +720,8 @@ function unidadeTotals(key){
 /* ================= render ================= */
 function renderParams(){
   document.getElementById("p-folga").value = (PARAMS.folga!=null?PARAMS.folga:100);
-  document.getElementById("p-exc-larg").value = excLarg();
+  document.getElementById("p-exc-larg").value = avancoLarg();
+  document.getElementById("p-avanco").value = avancoComp();
   const wrap=document.getElementById("unidades-wrap"); wrap.innerHTML="";
   (PARAMS.unidades||[]).forEach((u,i)=>{
     const d=document.createElement("div"); d.className="fld";
@@ -792,9 +814,13 @@ function tabuaOptions(sel){
   return ord.map(t=>`<option value="${t.comp}|${t.larg}" ${sel&&sel.c===t.comp&&sel.l===t.larg?"selected":""}>${t.comp}×${t.larg} ${esc(t.material||"")}</option>`).join("");
 }
 // como a peça entra no lastro: auto (testa as duas) · em pé · virada
-function giroOptions(sel, viradaAuto){
-  const v=sel||"auto";
-  return [["auto","Auto"+(viradaAuto?" (virada ↻)":" (em pé)")],["normal","Em pé"],["virada","Virada ↻"]]
+// mostra entre parênteses quantas peças por lastro cada opção rende
+function giroOptions(row, c){
+  const v=row.giro||"auto";
+  const f=encaixesPossiveis(row,c.tComp,c.tLarg,true);
+  const a=orientacaoAuto(row,c.tComp,c.tLarg);
+  const q=o=>o?` (${o.K}/lastro${o.excesso>0.5?", passa "+Math.round(o.excesso):""})`:" (não cabe)";
+  return [["auto","Auto"+(a?(a.virada?" → virada ↻":" → em pé"):"")],["normal","Em pé"+q(f.normal)],["virada","Virada ↻"+q(f.virada)]]
     .map(([val,lbl])=>`<option value="${val}" ${v===val?"selected":""}>${lbl}</option>`).join("");
 }
 function unidadeOptions(selIdx){
@@ -823,7 +849,7 @@ function renderSim(){
       <td class='num ${dimOk?"":"zero"}'>${r.alt??"—"}</td>
       <td class='calc'>${c.sug}</td>
       <td class='l'><select class='cell-sel' data-tabua='${idx}'>${tabuaOptions({c:c.tComp,l:c.tLarg})}</select></td>
-      <td class='l'><select class='cell-sel' data-giro='${idx}' title='Como a peça entra no lastro. Auto testa em pé e virada e fica com a que rende mais.'>${giroOptions(r.giro,c.virada)}</select></td>
+      <td class='l'><select class='cell-sel' data-giro='${idx}' title='Como a peça entra no lastro. Auto testa em pé e virada e fica com a que rende mais.'>${giroOptions(r,c)}</select></td>
       <td class='l'><select class='cell-sel' data-unid-in='${idx}' title='${esc(r.material||"")}'>${unidadeOptions(resolveUnidadeIdx(r))}</select></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-j-in='${idx}' value='${c.J}'></td>
@@ -925,14 +951,15 @@ function lastroSvg(r, c, tema){
     ? {tab:"#ffffff",tabL:"#999",folga:"#ececec",folgaL:"#aaa",pc:"#ffe2d4",pcL:"#FF5C1F",txt:"#444",cota:"#777",sobra:"#f4f4f4"}
     : {tab:"#141414",tabL:"#5a5a5a",folga:"#242424",folgaL:"#6a6a6a",pc:"rgba(255,92,31,.26)",pcL:"#FF5C1F",txt:"#b9b9b9",cota:"#8a8a8a",sobra:"#1b1b1b"};
   const folga=(PARAMS.folga!=null?PARAMS.folga:100);
+  const folgaEf=Math.max(0,folga-avancoComp());   // a peça pode avançar sobre a folga
   const tC=+c.tComp||0, tL=+c.tLarg||0;
   if(!(tC&&tL&&r.comp&&r.larg)) return "";
   const W=560, s=W/tC, TOP=22, H=Math.max(28, tL*s), BOT=16;
-  const fx=folga*s;
+  const fx=folgaEf*s;
   // medidas EFETIVAS da peça no lastro (já considerando se ela entra virada)
   const pC=+c.pcComp||r.comp, pL=+c.pcLarg||r.larg;
   const I=Math.max(0,Math.floor(c.I||0)), J=Math.max(0,Math.floor(c.J||0));
-  const usadoMM=I*pC, sobraMM=Math.max(0, tC-2*folga-usadoMM);
+  const usadoMM=I*pC, sobraMM=Math.max(0, compUtilDe(tC)-usadoMM);
   // quanto as peças passam da largura da tábua (tolerado até o excesso permitido)
   const excMM=Math.max(0, J*pL-tL), excede=excMM>0.5, foraTol=excMM>excLarg()+0.5||!c.cabe;
   const HP=J*pL*s, HD=Math.max(H,HP);
@@ -949,7 +976,7 @@ function lastroSvg(r, c, tema){
   g+=`<rect x="0" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`
    + `<rect x="${(W-fx).toFixed(1)}" y="${TOP}" width="${fx.toFixed(1)}" height="${H}" fill="${cor.folga}" stroke="${cor.folgaL}" stroke-width="1" stroke-dasharray="3 2"/>`;
   const cabe=(txt,w,size)=>String(txt).length*(size||10)*0.62 <= w-4;   // texto só entra se couber na faixa
-  if(cabe(folga,fx,10)){ g+=t(fx/2, TOP+H/2+3, String(folga), "middle", 10) + t(W-fx/2, TOP+H/2+3, String(folga), "middle", 10); }
+  if(cabe(folgaEf,fx,10)){ g+=t(fx/2, TOP+H/2+3, String(folgaEf), "middle", 10) + t(W-fx/2, TOP+H/2+3, String(folgaEf), "middle", 10); }
   // sobra de tábua (depois da última peça, antes da folga da outra ponta)
   if(sobraMM>0.5){
     const sx=fx+usadoMM*s, sw=sobraMM*s;
@@ -1304,6 +1331,10 @@ document.getElementById("p-folga").addEventListener("change",e=>{ PARAMS.folga=M
 document.getElementById("p-exc-larg").addEventListener("change",e=>{
   PARAMS.excLarg=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS);
   // o encaixe muda → recalcula tudo (peças sem I/J travados manualmente)
+  renderParams(); renderAll();
+});
+document.getElementById("p-avanco").addEventListener("change",e=>{
+  PARAMS.avancoComp=Math.max(0,+e.target.value||0); save(LS_PARAMS,PARAMS);
   renderParams(); renderAll();
 });
 document.getElementById("btn-add-altura").addEventListener("click",()=>{
