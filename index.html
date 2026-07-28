@@ -346,7 +346,8 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
         A faixa cinza de cada ponta é a <b>folga de segurança</b> (⚙ Cadastros) e a faixa listrada no fim é a
         <b>sobra de tábua</b> que não dá pra aproveitar.</div>
       <div class="top-actions no-print">
-        <button class="linkbtn" id="btn-des-pdf">🖨️ Imprimir só os desenhos deste lote</button>
+        <button class="linkbtn" id="btn-des-pdf">🖨️ Desenhos deste lote</button>
+        <span id="btn-des-unid"></span>
         <button class="linkbtn" id="btn-des-pdf-todos">🖨️ Desenhos de todos os lotes</button>
       </div>
       <div id="des-resumo" class="des-resumo no-print hidden"></div>
@@ -1114,7 +1115,7 @@ function renderUnid(){
 }
 /* ================= desenho do lastro (como as peças ficam na tábua) ================= */
 // SVG da tábua vista de cima: folga nas 2 pontas, as peças encaixadas (I × J) e a sobra
-function lastroSvg(r, c, tema){
+function lastroSvg(r, c, tema, refMM){
   const claro = tema==="print";
   const cor = claro
     ? {tab:"#ffffff",tabL:"#999",folga:"#ececec",folgaL:"#aaa",pc:"#ffe2d4",pcL:"#FF5C1F",txt:"#444",cota:"#777",sobra:"#f4f4f4"}
@@ -1128,7 +1129,9 @@ function lastroSvg(r, c, tema){
   const pC=+c.pcComp||r.comp, pL=+c.pcLarg||r.larg;
   const I=Math.max(0,Math.floor(c.I||0)), J=Math.max(0,Math.floor(c.J||0));
   // se a peça é mais comprida que a tábua, o desenho abre espaço p/ mostrar o que sobra pra fora
-  const compMM=Math.max(tC, I*pC+2*folgaEf), s=W/compMM;
+  // refMM = maior extensão do lote: todos os desenhos saem na MESMA escala, então 500 mm de
+  // largura tem sempre a mesma altura no papel, seja a tábua de 1100 ou de 1850
+  const compMM=Math.max(tC, I*pC+2*folgaEf), s=W/Math.max(compMM, refMM||0);
   const xTab=(W-tC*s)/2;                               // a tábua fica centrada no quadro
   const H=Math.max(28, tL*s), BOT=16;
   const fx=folgaEf*s;
@@ -1284,9 +1287,9 @@ function metrosNaOrientacao(lt, idxs, giro){
   }
   return tot;
 }
-function desenhoCardHtml(a, tema, ai){
+function desenhoCardHtml(a, tema, ai, refMM){
   const {r,c}=a;
-  const svg=lastroSvg(r,c,tema);
+  const svg=lastroSvg(r,c,tema,refMM);
   if(!svg) return "";
   const outros=a.cods.length>1?` <span style="opacity:.6">+${a.cods.length-1}</span>`:"";
   // controles (só na tela) — a economia aparece apenas quando há ganho de verdade
@@ -1316,6 +1319,20 @@ function renderDesenhos(){
   const arr=CUR?arranjosDoLote(CUR):[];
   const tag=document.getElementById("des-tag");
   if(tag) tag.textContent = lt? (lt.lote+" · "+arr.length+" arranjo(s)") : "";
+  // um botão de impressão por unidade que tenha desenho neste lote
+  const bu=document.getElementById("btn-des-unid");
+  if(bu){
+    const us=[...new Set(arr.map(a=>a.unid))].sort((x,y)=>x-y);
+    bu.innerHTML=us.map(u=>`<button class="linkbtn" data-des-unid="${u}">🖨️ ${esc(((PARAMS.unidades||[])[u]||{}).nome||"Unidade")}</button>`).join(" ");
+    bu.querySelectorAll("button[data-des-unid]").forEach(b=>b.addEventListener("click",e=>{
+      const u=+e.currentTarget.dataset.desUnid;
+      const html=desenhoPageHtml(CUR,u);
+      if(!html){ alert("Nenhum desenho desta unidade."); return; }
+      document.getElementById("report-todos").innerHTML=html;
+      const nome=((PARAMS.unidades||[])[u]||{}).nome||"UNIDADE";
+      imprimirComo("DESENHOS "+nomeLote(CUR)+" - "+nome.toUpperCase(), "printing-todos");
+    }));
+  }
   // resumo: quanto o lote ainda economiza se cada arranjo usar o melhor giro
   const resumo=document.getElementById("des-resumo");
   const ecoTot=arr.reduce((s,a)=>s+Math.max(0,a.economia),0);
@@ -1327,7 +1344,8 @@ function renderDesenhos(){
       +`(${fmt(atual)} m → ${fmt(atual-ecoTot)} m).`
       +`<button class="btn2 no-print" id="btn-melhor-giro">Aplicar o melhor giro</button>`;
   }
-  box.innerHTML = arr.length? arr.map((a,i)=>desenhoCardHtml(a,"screen",i)).join("")
+  const ref=refEscala(arr);
+  box.innerHTML = arr.length? arr.map((a,i)=>desenhoCardHtml(a,"screen",i,ref)).join("")
     : `<div class="des-nada">Nenhuma peça com medida completa neste lote — sem desenho.</div>`;
   const btn=document.getElementById("btn-melhor-giro");
   if(btn) btn.addEventListener("click",()=>{
@@ -1376,6 +1394,15 @@ function renderDesenhos(){
     window.scrollTo(0,y);   // mantém a tela no mesmo lugar
   }));
 }
+// escala comum: a maior extensão em mm entre os arranjos da lista
+function refEscala(lista){
+  let m=0;
+  for(const a of (lista||[])){
+    const I=Math.max(0,Math.floor(a.c.I||0)), pC=a.c.pcComp||a.r.comp||0;
+    m=Math.max(m, a.c.tComp||0, I*pC+2*(a.c.folgaEf||0));
+  }
+  return m;
+}
 // tabela "tábuas do lote" para os relatórios em PDF
 function tabuasTabelaHtml(key, unidIdx){
   const lista=tabuasUsadas(key,unidIdx); if(!lista.length) return "";
@@ -1391,14 +1418,15 @@ function tabuasTabelaHtml(key, unidIdx){
     </table>`;
 }
 // páginas de desenho do lote para o PDF — uma página por UNIDADE de corte
-function desenhoPageHtml(key){
+function desenhoPageHtml(key, soUnid){
   const lt=LOTES[key]; const arr=arranjosDoLote(key);
   if(!lt||!arr.length) return "";
   const now=new Date();
   // agrupa os arranjos por unidade, mantendo a ordem das unidades cadastradas
   const porUnid=new Map();
   for(const a of arr){ (porUnid.get(a.unid) || porUnid.set(a.unid,[]).get(a.unid)).push(a); }
-  const ordem=[...porUnid.keys()].sort((x,y)=>x-y);
+  const ordem=[...porUnid.keys()].sort((x,y)=>x-y).filter(u=>soUnid==null||u===soUnid);
+  const refLote=refEscala(arr);   // mesma escala em todas as páginas
   const cabec=(sub)=>`
     <div class="rep-head">
       <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
@@ -1426,7 +1454,7 @@ function desenhoPageHtml(key){
         <div><span>Esteira</span><b>${fmt(met)} m</b></div>
       </div>
       ${tabuasTabelaHtml(key, ui)}
-      <div class="des-print">${lista.map(a=>desenhoCardHtml(a,"print")).join("")}</div>
+      <div class="des-print">${lista.map(a=>desenhoCardHtml(a,"print",0,refLote)).join("")}</div>
       ${rodape}
     </div>`;
   }

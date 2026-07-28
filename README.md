@@ -40,7 +40,9 @@ na tela e o simulador monta tudo:
   tábuas daquela unidade).
 - **Imprimir só os desenhos** — botões na própria seção, para o lote atual ou para todos os lotes.
   No desenho, o eixo horizontal é o **comprimento** da tábua e a cota vertical à direita é a
-  **largura** (fixa, 500 mm).
+  **largura** (fixa, 500 mm). Todos os desenhos de um lote saem **na mesma escala**: a largura de
+  500 mm tem sempre a mesma altura no papel, seja a tábua de 910 ou de 1850 — o que muda é o
+  comprimento. Além do lote inteiro, dá para imprimir **só os desenhos de uma unidade**.
 - No desenho as peças ficam **centralizadas na tábua**: a sobra (ou o que passa) é dividida
   igualmente entre os dois lados, nos dois sentidos.
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
