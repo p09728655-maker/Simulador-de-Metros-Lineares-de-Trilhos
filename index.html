@@ -138,6 +138,9 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-card{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px}
 .des-card .des-tit{font-family:var(--font-d);font-size:12px;color:var(--txt);margin-bottom:2px}
 .des-card .des-cod{font-family:var(--font-m,monospace);font-size:10px;color:var(--acc)}
+.des-unid{float:right;font-family:var(--font-d);font-size:9px;font-weight:600;letter-spacing:1px;
+  text-transform:uppercase;color:var(--txt2);border:.5px solid var(--border);border-radius:20px;padding:2px 9px}
+.print-report .des-unid{float:right;font-size:8px;color:#555;border:1px solid #ccc;border-radius:20px;padding:1px 7px}
 .des-card .des-sub{font-family:var(--font-d);font-size:10px;color:var(--txt2);margin:6px 0 0;line-height:1.55}
 .des-card svg{width:100%;height:auto;display:block;margin:8px 0 2px}
 .des-nada{font-family:var(--font-d);font-size:11px;color:var(--txt3);padding:10px 0}
@@ -1054,12 +1057,13 @@ function renderGeral(){
 }
 /* ====== tábuas que o lote consome (cada pilha = 1 tábua no trilho) ====== */
 // key = lote; null = todos os lotes importados
-function tabuasUsadas(key){
+function tabuasUsadas(key, unidIdx){
   const keys = key==null ? Object.keys(LOTES) : [key];
   const map=new Map();
   for(const k of keys){
     const lt=LOTES[k]; if(!lt) continue;
     for(const r of lt.rows){
+      if(unidIdx!=null && resolveUnidadeIdx(r)!==unidIdx) continue;
       const c=calcRow(r); if(!c.tComp) continue;
       const kk=c.tComp+"x"+c.tLarg;
       const hit=map.get(kk) || {comp:c.tComp, larg:c.tLarg, itens:0, qty:0, tabuas:0, O:0};
@@ -1149,7 +1153,7 @@ function lastroSvg(r, c, tema){
   g+=`<line x1="${xTab}" y1="${yCota-8}" x2="${xFim}" y2="${yCota-8}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xTab}" y1="${yCota-12}" x2="${xTab}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
    + `<line x1="${xFim}" y1="${yCota-12}" x2="${xFim}" y2="${yCota-4}" stroke="${cor.cota}" stroke-width="1"/>`
-   + t((xTab+xFim)/2, yCota-12, "tábua "+tC+" mm");
+   + t((xTab+xFim)/2, yCota-12, "comprimento da tábua "+tC+" mm");
   // tábua
   g+=`<rect x="${xTab.toFixed(1)}" y="${TOP}" width="${(tC*s).toFixed(1)}" height="${H}" fill="${cor.tab}" stroke="${cor.tabL}" stroke-width="1"/>`;
   // folga das 2 pontas
@@ -1193,8 +1197,12 @@ function lastroSvg(r, c, tema){
     }
   }
   // cota da largura + avisos (peça virada / quanto passa da tábua)
-  g+=t(xFim, TOP+HD+11, "largura "+tL+" mm", "end", 10)
-   + (sobraMM>0.5? t(xTab, TOP+HD+11, "sobra "+Math.round(sobraMM)+" mm", "start", 10) : "");
+  const xL=W+12;   // cota da largura, no eixo vertical
+  g+=`<line x1="${xL}" y1="${TOP}" x2="${xL}" y2="${TOP+H}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<line x1="${xL-4}" y1="${TOP}" x2="${xL+4}" y2="${TOP}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<line x1="${xL-4}" y1="${TOP+H}" x2="${xL+4}" y2="${TOP+H}" stroke="${cor.cota}" stroke-width="1"/>`
+   + `<text x="${xL+13}" y="${TOP+H/2}" text-anchor="middle" transform="rotate(90 ${xL+13} ${TOP+H/2})" font-family="ui-monospace,monospace" font-size="10" fill="${cor.txt}">largura da tábua ${tL} mm</text>`;
+  if(sobraMM>0.5) g+=t(xTab, TOP+HD+11, "sobra "+Math.round(sobraMM)+" mm no comprimento", "start", 10);
   let yAviso=TOP+HD+24, nAvisos=0;
   if(excede){
     const bal=excMM/2, apoio=Math.max(0,pL-bal);
@@ -1210,7 +1218,7 @@ function lastroSvg(r, c, tema){
       +`${Math.ceil((pC+2*folgaEf)/5)*5} mm</text>`;
     nAvisos++;
   }
-  return `<svg viewBox="0 0 ${W} ${TOP+HD+BOT+nAvisos*13}" preserveAspectRatio="xMidYMid meet" role="img">${g}</svg>`;
+  return `<svg viewBox="0 0 ${W+32} ${TOP+HD+BOT+nAvisos*13}" preserveAspectRatio="xMidYMid meet" role="img">${g}</svg>`;
 }
 // agrupa as peças do lote por arranjo igual (mesma tábua + mesma peça + mesmo encaixe) → "1 exemplo de cada"
 function arranjosDoLote(key){
@@ -1219,10 +1227,11 @@ function arranjosDoLote(key){
   lt.rows.forEach((r,idx)=>{
     if(!(r.comp&&r.larg&&r.alt)) return;
     const c=calcRow(r);
-    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}|f${c.folgaEf}`;
+    const ui=resolveUnidadeIdx(r);
+    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}|f${c.folgaEf}|u${ui}`;
     const hit=map.get(k);
     if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); hit.idxs.push(idx); }
-    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx]});
+    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx],unid:ui,unidNome:((PARAMS.unidades||[])[ui]||{}).nome||"—"});
   });
   // metros que o arranjo consome em cada orientação — SÓ orientação viável entra na conta;
   // a que deixa a peça sem apoio na tábua fica de fora (não é opção de economia)
@@ -1265,13 +1274,15 @@ function desenhoCardHtml(a, tema, ai){
     ? `<span class="des-eco ok">${a.melhorGiro==="virada"?"↻":"▭"} −${fmt(a.economia)} m</span>` : "";
   const giro = tema==="print" ? "" :
     `<div class="des-giro no-print">
+      <select class="cell-sel" data-unid-arr="${ai}" title="Unidade de corte — vale para as ${a.cods.length} peça(s) deste arranjo">${unidadeOptions(a.unid)}</select>
       <select class="cell-sel" data-tabua-arr="${ai}" title="Tábua usada — vale para as ${a.cods.length} peça(s) deste arranjo">${tabuaOptionsCalc(r,c)}</select>
       <select class="cell-sel" data-giro-arr="${ai}" title="Como a peça entra no lastro — vale para as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
       <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento: cheia (${folgaBase()} mm) ou reduzida pelo avanço de ${avancoComp()} mm">${folgaOptions(r,c)}</select>
       ${eco}
     </div>`;
   return `<div class="${tema==="print"?"des-box":"des-card"}">
-    <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}</div>
+    <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}
+      <span class="des-unid">${esc(a.unidNome)}</span></div>
     ${giro}
     ${svg}
     <div class="des-sub"><b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro ·
@@ -1309,6 +1320,14 @@ function renderDesenhos(){
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
     window.scrollTo(0,y);
   });
+  // trocar a unidade de corte pelo desenho
+  box.querySelectorAll("select[data-unid-arr]").forEach(s=>s.addEventListener("change",e=>{
+    const a=arr[+e.target.dataset.unidArr]; if(!a) return;
+    const y=window.scrollY, u=+e.target.value;
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue; row.unidade=u; }
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);
+  }));
   // trocar a tábua pelo desenho: vale para todas as peças daquele arranjo
   box.querySelectorAll("select[data-tabua-arr]").forEach(s=>s.addEventListener("change",e=>{
     const a=arr[+e.target.dataset.tabuaArr]; if(!a) return;
@@ -1338,35 +1357,57 @@ function renderDesenhos(){
   }));
 }
 // tabela "tábuas do lote" para os relatórios em PDF
-function tabuasTabelaHtml(key){
-  const lista=tabuasUsadas(key); if(!lista.length) return "";
+function tabuasTabelaHtml(key, unidIdx){
+  const lista=tabuasUsadas(key,unidIdx); if(!lista.length) return "";
   const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
   let r="";
   for(const x of lista) r+=`<tr><td class='l'>${x.comp} × ${x.larg}</td><td>${fmtInt(x.tabuas)}</td>`
     +`<td>${fmtInt(x.itens)}</td><td>${fmtInt(x.qty)}</td><td>${fmt(x.O)}</td>`
     +`<td>${totO>0?fmt(x.O/totO*100)+"%":"—"}</td></tr>`;
-  return `<div class="rep-ctitle">Tábuas do lote — ${fmtInt(totT)} tábua(s) em ${lista.length} medida(s)</div>
+  return `<div class="rep-ctitle">Tábuas${unidIdx!=null?" desta unidade":" do lote"} — ${fmtInt(totT)} tábua(s) em ${lista.length} medida(s)</div>
     <table class="rep-tbl">
-      <thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros</th><th>% do lote</th></tr></thead>
+      <thead><tr><th class='l'>Tábua (comp × larg)</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros</th><th>%</th></tr></thead>
       <tbody>${r}<tr class="rep-tot"><td class='l'>Total</td><td>${fmtInt(totT)}</td><td colspan='2'></td><td>${fmt(totO)}</td><td></td></tr></tbody>
     </table>`;
 }
-// página de desenhos do lote para o PDF
+// páginas de desenho do lote para o PDF — uma página por UNIDADE de corte
 function desenhoPageHtml(key){
   const lt=LOTES[key]; const arr=arranjosDoLote(key);
   if(!lt||!arr.length) return "";
   const now=new Date();
-  return `
+  // agrupa os arranjos por unidade, mantendo a ordem das unidades cadastradas
+  const porUnid=new Map();
+  for(const a of arr){ (porUnid.get(a.unid) || porUnid.set(a.unid,[]).get(a.unid)).push(a); }
+  const ordem=[...porUnid.keys()].sort((x,y)=>x-y);
+  const cabec=(sub)=>`
     <div class="rep-head">
       <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
       <div>
         <div class="rep-title">Desenho do lastro <span>· Lote ${esc(lt.lote)}</span></div>
-        <div class="rep-meta">1 exemplo de cada arranjo · ${arr.length} arranjo(s) · folga de ${folgaBase()} mm por ponta (avanço até ${avancoComp()} mm) · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
+        <div class="rep-meta">${esc(sub)} · folga de ${folgaBase()} mm por ponta (avanço até ${avancoComp()} mm) · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
       </div>
-    </div>
-    ${tabuasTabelaHtml(key)}
-    <div class="des-print">${arr.map(a=>desenhoCardHtml(a,"print")).join("")}</div>
-    <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · faixa pontilhada nas pontas = folga de segurança · faixa tracejada = sobra de tábua</div>`;
+    </div>`;
+  const rodape=`<div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · faixa pontilhada nas pontas = folga de segurança · faixa tracejada = sobra de tábua</div>`;
+  let out="";
+  for(const ui of ordem){
+    const lista=porUnid.get(ui);
+    const nome=((PARAMS.unidades||[])[ui]||{}).nome||"Sem unidade";
+    const tab=lista.reduce((s,a)=>s+a.N,0), met=lista.reduce((s,a)=>s+a.O,0), pc=lista.reduce((s,a)=>s+a.qty,0);
+    out+=`<div class="rep-page">
+      ${cabec(nome+" · 1 exemplo de cada arranjo · "+lista.length+" arranjo(s)")}
+      <div class="rep-kpis">
+        <div><span>Unidade</span><b>${esc(nome)}</b></div>
+        <div><span>Arranjos</span><b>${lista.length}</b></div>
+        <div><span>Peças</span><b>${fmtInt(pc)}</b></div>
+        <div><span>Tábuas (pilhas)</span><b>${fmtInt(tab)}</b></div>
+        <div><span>Esteira</span><b>${fmt(met)} m</b></div>
+      </div>
+      ${tabuasTabelaHtml(key, ui)}
+      <div class="des-print">${lista.map(a=>desenhoCardHtml(a,"print")).join("")}</div>
+      ${rodape}
+    </div>`;
+  }
+  return out;
 }
 
 function renderCompLoteSel(){
@@ -1861,8 +1902,7 @@ function renderTodosReport(keys){
   if(keys.length>1) h+=`<div class="rep-page">${consolidadoHtml()}</div>`;
   keys.forEach((k,i)=>{
     h+=`<div class="rep-page">${loteReportHtml(k, "Lote "+LOTES[k].lote+(keys.length>1?` · ${i+1}/${keys.length}`:""))}</div>`;
-    const des=desenhoPageHtml(k);          // página com o desenho do lastro do lote
-    if(des) h+=`<div class="rep-page">${des}</div>`;
+    h+=desenhoPageHtml(k);                 // páginas de desenho (uma por unidade)
   });
   el.innerHTML=h;
 }
@@ -1877,12 +1917,12 @@ document.getElementById("btn-pdf-todos").addEventListener("click",imprimirTodosL
 document.getElementById("btn-des-pdf").addEventListener("click",()=>{
   const des=CUR?desenhoPageHtml(CUR):"";
   if(!des){ alert("Nenhum desenho para imprimir neste lote."); return; }
-  document.getElementById("report-todos").innerHTML=`<div class="rep-page">${des}</div>`;
+  document.getElementById("report-todos").innerHTML=des;
   imprimirComo("DESENHOS "+nomeLote(CUR), "printing-todos");
 });
 document.getElementById("btn-des-pdf-todos").addEventListener("click",()=>{
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
-  const paginas=keys.map(k=>desenhoPageHtml(k)).filter(Boolean).map(h=>`<div class="rep-page">${h}</div>`);
+  const paginas=keys.map(k=>desenhoPageHtml(k)).filter(Boolean);
   if(!paginas.length){ alert("Nenhum desenho para imprimir."); return; }
   document.getElementById("report-todos").innerHTML=paginas.join("");
   imprimirComo("DESENHOS "+nomeLotes(keys), "printing-todos");
@@ -1983,7 +2023,7 @@ document.getElementById("btn-pdf").addEventListener("click",()=>{
   if(!LOTES[CUR]){ alert("Importe um lote para gerar o relatório."); return; }
   const des=desenhoPageHtml(CUR);
   document.getElementById("report-todos").innerHTML=
-    `<div class="rep-page">${loteReportHtml(CUR)}</div>`+(des?`<div class="rep-page">${des}</div>`:"");
+    `<div class="rep-page">${loteReportHtml(CUR)}</div>`+des;
   imprimirComo(nomeLote(CUR), "printing-todos");
 });
 

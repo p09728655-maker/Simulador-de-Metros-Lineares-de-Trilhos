@@ -35,7 +35,12 @@ na tela e o simulador monta tudo:
 - **Tábuas do lote** — resumo de **quantas tábuas de cada medida** o lote consome (cada pilha ocupa
   uma tábua no trilho), com itens, peças, metros e o % do lote. Serve como lista de separação para o
   corte e sai também no **PDF do lote** e na **impressão dos desenhos**.
+- **Unidade no desenho** — cada card mostra a unidade de corte da peça e permite **trocá-la ali mesmo**;
+  a impressão dos desenhos sai **separada por unidade** (uma página por unidade, com os KPIs e as
+  tábuas daquela unidade).
 - **Imprimir só os desenhos** — botões na própria seção, para o lote atual ou para todos os lotes.
+  No desenho, o eixo horizontal é o **comprimento** da tábua e a cota vertical à direita é a
+  **largura** (fixa, 500 mm).
 - No desenho as peças ficam **centralizadas na tábua**: a sobra (ou o que passa) é dividida
   igualmente entre os dois lados, nos dois sentidos.
 - **Simulação do lote** — por peça: `I × J` (quantas cabem por lastro, sugerido e editável),
