@@ -26,7 +26,8 @@ na tela e o simulador monta tudo:
     limitado ainda pelo **apoio mínimo da peça** (padrão **67%** da largura dela sobre a tábua).
     Ex.: `615×420` virada numa tábua de 500 passa 115 mm → 57,5 mm de cada lado, apoia 91% → **ok**.
     Já uma ripa de 48 mm com 38 mm no ar é recusada — a fileira da ponta não teria apoio.
-- **Ajustar pelo desenho** — cada card tem três seletores que valem para todas as peças daquele
+- **Ajustar pelo desenho** — cada card tem os controles do arranjo (unidade, tábua, giro, folga, peças por lastro `I × J` e camadas)
+- **Ajustar pelo desenho (detalhe)** — três seletores que valem para todas as peças daquele
   arranjo, todos mostrando **quanto cada opção rende por lastro**: a **tábua** (`1600×500 · 2/lastro`),
   o **giro** (Auto · Em pé · Virada ↻) e a **folga** de cada ponta (`folga 100` ou `folga 75`).
   A economia do giro aparece só quando existe ganho real; giros que deixariam a peça **sem apoio**

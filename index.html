@@ -1096,8 +1096,7 @@ function renderSim(){
     const i=+e.target.dataset.giro, y=window.scrollY;
     LOTES[CUR].rows[i].giro=e.target.value;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // novo giro → novo encaixe
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);
+    atualizaAposEdicao(y);
   }));
   t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
@@ -1398,6 +1397,10 @@ function desenhoCardHtml(a, tema, ai, refMM){
       <select class="cell-sel" data-tabua-arr="${ai}" title="Tábua usada — vale para as ${a.cods.length} peça(s) deste arranjo">${tabuaOptionsCalc(r,c)}</select>
       <select class="cell-sel" data-giro-arr="${ai}" title="Como a peça entra no lastro — vale para as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
       <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento: cheia (${folgaBase()} mm) ou reduzida pelo avanço de ${avancoComp()} mm">${folgaOptions(r,c)}</select>
+      <label style="display:flex;align-items:center;gap:5px" title="Peças por lastro: no comprimento × na largura. Vazio = automático.">lastro
+        <input class="cell-in" style="width:46px" type="number" min="1" step="1" data-i-arr="${ai}"
+          value="${r.I!=null?r.I:""}" placeholder="${Math.floor(c.I)}">×<input class="cell-in" style="width:46px"
+          type="number" min="1" step="1" data-j-arr="${ai}" value="${r.J!=null?r.J:""}" placeholder="${Math.floor(c.J)}"></label>
       <label style="display:flex;align-items:center;gap:5px">camadas
         <input class="cell-in" style="width:58px" type="number" min="1" step="1" data-cam-arr="${ai}"
           value="${r.camadas!=null?r.camadas:""}" placeholder="${camadasFor(r.alt)||"auto"}"
@@ -1409,7 +1412,7 @@ function desenhoCardHtml(a, tema, ai, refMM){
       <span class="des-unid">${esc(a.unidNome)}</span></div>
     ${giro}
     ${svg}
-    <div class="des-sub"><b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro ·
+    <div class="des-sub"><b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro${(r.I!=null||r.J!=null)?' <b style="color:#e65100">travado</b>':""} ·
       <b>${fmtInt(camadasDe(r))}</b> camada(s)${r.camadas!=null?' <b style="color:#e65100">travado</b>':""} ·
       <b>${fmtInt(c.M)}</b> pç/pilha · ${fmtInt(a.qty)} peças = <b>${fmtInt(a.N)}</b> pilha(s) ·
       <b>${fmt(a.O)} m</b> de esteira</div>
@@ -1419,6 +1422,14 @@ function renderDesLoteSel(){
   const sel=document.getElementById("des-lote-sel"); if(!sel) return;
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
+}
+// re-render fora do evento (senão o blur do input tenta escrever num nó já removido)
+function atualizaAposEdicao(y){
+  persistLotes();
+  setTimeout(()=>{
+    renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    if(y!=null) window.scrollTo(0,y);
+  },0);
 }
 function renderDesenhos(){
   // estado vazio x com lote
@@ -1467,16 +1478,14 @@ function renderDesenhos(){
       for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
         row.giro=a.melhorGiro; row.I=null; row.J=null; }
     }
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);
+    atualizaAposEdicao(y);
   });
   // trocar a unidade de corte pelo desenho
   box.querySelectorAll("select[data-unid-arr]").forEach(s=>s.addEventListener("change",e=>{
     const a=arr[+e.target.dataset.unidArr]; if(!a) return;
     const y=window.scrollY, u=+e.target.value;
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue; row.unidade=u; }
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);
+    atualizaAposEdicao(y);
   }));
   // trocar a tábua pelo desenho: vale para todas as peças daquele arranjo
   box.querySelectorAll("select[data-tabua-arr]").forEach(s=>s.addEventListener("change",e=>{
@@ -1484,17 +1493,25 @@ function renderDesenhos(){
     const y=window.scrollY, [tc,tl]=e.target.value.split("|").map(Number);
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
       row.tabuaComp=tc; row.tabuaLarg=tl; row.I=null; row.J=null; }
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);
+    atualizaAposEdicao(y);
   }));
+  // peças por lastro (I × J) pelo desenho: vazio = automático
+  const aplicaIJ=(campo)=>e=>{
+    const a=arr[+e.target.dataset[campo==="I"?"iArr":"jArr"]]; if(!a) return;
+    const y=window.scrollY, v=e.target.value.trim();
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+      row[campo] = v===""? null : Math.max(1,+v||1); }
+    atualizaAposEdicao(y);
+  };
+  box.querySelectorAll("input[data-i-arr]").forEach(s=>s.addEventListener("change",aplicaIJ("I")));
+  box.querySelectorAll("input[data-j-arr]").forEach(s=>s.addEventListener("change",aplicaIJ("J")));
   // camadas pelo desenho: vazio = automático, 1 = lastro único
   box.querySelectorAll("input[data-cam-arr]").forEach(s=>s.addEventListener("change",e=>{
     const a=arr[+e.target.dataset.camArr]; if(!a) return;
     const y=window.scrollY, v=e.target.value.trim();
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
       row.camadas = v===""? null : Math.max(1,+v||1); }
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);
+    atualizaAposEdicao(y);
   }));
   // folga pelo desenho: o operador escolhe se a peça avança sobre a folga
   box.querySelectorAll("select[data-folga-arr]").forEach(s=>s.addEventListener("change",e=>{
@@ -1502,8 +1519,7 @@ function renderDesenhos(){
     const y=window.scrollY, av=+e.target.value;
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
       row.avanco=av; row.I=null; row.J=null; }
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);
+    atualizaAposEdicao(y);
   }));
   // girar pelo desenho: aplica o giro a todas as peças daquele arranjo
   box.querySelectorAll("select[data-giro-arr]").forEach(s=>s.addEventListener("change",e=>{
