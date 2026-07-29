@@ -64,6 +64,10 @@ na tela e o simulador monta tudo:
 - **Tábuas do lote** — resumo de **quantas tábuas de cada medida** o lote consome (cada pilha ocupa
   uma tábua no trilho), com itens, peças, metros e o % do lote. Serve como lista de separação para o
   corte e sai também no **PDF do lote** e na **impressão dos desenhos**.
+- **Ver só uma unidade** — no topo da tela dos desenhos, o seletor **Ver** filtra a tela por unidade
+  de corte (`Todas as unidades` · `UNIDADE I · 12 desenho(s)` · …). Filtra junto a tabela **Tábuas do
+  lote**, virando a lista de separação daquela unidade. A **escala dos desenhos não muda** com o
+  filtro, então dá para comparar as duas unidades lado a lado.
 - **Unidade no desenho** — cada card mostra a unidade de corte da peça e permite **trocá-la ali mesmo**;
   a impressão dos desenhos sai **separada por unidade** (uma página por unidade, com os KPIs e as
   tábuas daquela unidade).

@@ -89,6 +89,7 @@ td.zero{color:var(--txt3)}
 select.cell-sel{background:var(--bg);border:.5px solid var(--border);color:var(--txt);font-family:var(--font-d);
   font-size:12px;padding:4px 6px;border-radius:5px;cursor:pointer;max-width:150px}
 select.cell-sel:focus{outline:none;border-color:var(--acc)}
+#des-unid-sel{max-width:none}
 #tbl-sim select.cell-sel{max-width:112px}
 #tbl-sim select[data-giro]{max-width:104px}
 #tbl-sim .desc-txt{display:inline-block;max-width:330px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
@@ -358,6 +359,10 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
       <div class="top-actions no-print">
         <label style="font-family:var(--font-d);font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:6px">Lote:
           <select id="des-lote-sel" class="cell-sel"></select>
+        </label>
+        <label style="font-family:var(--font-d);font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:6px"
+          title="Mostra só os desenhos e as tábuas de uma unidade de corte">Ver:
+          <select id="des-unid-sel" class="cell-sel"></select>
         </label>
       </div>
     <!-- Tábuas que o lote vai consumir -->
@@ -1237,10 +1242,10 @@ function tabuasUsadas(key, unidIdx){
 }
 function renderTabuasLote(){
   const t=document.getElementById("tbl-tabuas-lote"); if(!t) return;
-  const lista=CUR?tabuasUsadas(CUR):[];
+  const lista=CUR?tabuasUsadas(CUR,DES_UNID):[];
   const tag=document.getElementById("tbl-tag");
   const totT=lista.reduce((s,x)=>s+x.tabuas,0), totO=lista.reduce((s,x)=>s+x.O,0);
-  if(tag) tag.textContent = CUR&&LOTES[CUR] ? (LOTES[CUR].lote+" · "+fmtInt(totT)+" tábua(s) em "+lista.length+" medida(s)") : "";
+  if(tag) tag.textContent = CUR&&LOTES[CUR] ? (LOTES[CUR].lote+nomeFiltroUnid()+" · "+fmtInt(totT)+" tábua(s) em "+lista.length+" medida(s)") : "";
   let h="<thead><tr><th class='l'>Tábua (comp × larg)</th><th class='l'>Cor da borda</th><th>Tábuas (pilhas)</th><th>Itens</th><th>Peças</th><th>Metros de esteira</th><th>% do lote</th></tr></thead><tbody>";
   for(const x of lista){
     h+=`<tr><td class='l mono'>${x.comp} × ${x.larg}</td>
@@ -1499,6 +1504,22 @@ function desenhoCardHtml(a, tema, ai, refMM){
       <b>${fmt(a.O)} m</b> de esteira</div>
   </div>`;
 }
+/* ===== filtro de unidade na tela dos desenhos (null = todas) ===== */
+let DES_UNID=null;
+function nomeUnid(u){ return ((PARAMS.unidades||[])[u]||{}).nome||("Unidade "+(u+1)); }
+function nomeFiltroUnid(){ return DES_UNID==null? "" : " · "+nomeUnid(DES_UNID); }
+function renderDesUnidSel(arrTodos){
+  const sel=document.getElementById("des-unid-sel"); if(!sel) return;
+  const us=[...new Set(arrTodos.map(a=>a.unid))].sort((x,y)=>x-y);
+  if(DES_UNID!=null && us.indexOf(DES_UNID)<0) DES_UNID=null;      // o lote trocou e não tem essa unidade
+  sel.innerHTML=`<option value="">Todas as unidades${us.length>1?" ("+us.length+")":""}</option>`
+    +us.map(u=>`<option value="${u}" ${DES_UNID===u?"selected":""}>${esc(nomeUnid(u))} · ${
+      arrTodos.filter(a=>a.unid===u).length} desenho(s)</option>`).join("");
+  if(!sel.dataset.lig){ sel.dataset.lig=1; sel.addEventListener("change",e=>{
+    const v=e.target.value; DES_UNID = v===""? null : +v;
+    renderTabuasLote(); renderDesenhos(); window.scrollTo(0,0);
+  }); }
+}
 function renderDesLoteSel(){
   const sel=document.getElementById("des-lote-sel"); if(!sel) return;
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
@@ -1583,9 +1604,13 @@ function renderDesenhos(){
   if(wrap) wrap.classList.toggle("hidden", !temLote);
   const box=document.getElementById("desenhos"); if(!box) return;
   const lt=LOTES[CUR];
-  const arr=CUR?arranjosDoLote(CUR):[];
+  // arrTodos = o lote inteiro (a fusão e a escala olham tudo); arr = o que a unidade escolhida mostra
+  const arrTodos=CUR?arranjosDoLote(CUR):[];
+  renderDesUnidSel(arrTodos);
+  const arr = DES_UNID==null? arrTodos : arrTodos.filter(a=>a.unid===DES_UNID);
   const tag=document.getElementById("des-tag");
-  if(tag) tag.textContent = lt? (lt.lote+" · "+arr.length+" arranjo(s)") : "";
+  if(tag) tag.textContent = lt? (lt.lote+nomeFiltroUnid()+" · "+arr.length+" arranjo(s)"
+    +(DES_UNID!=null?" de "+arrTodos.length:"")) : "";
   // salvar / restaurar / voltar ao padrão
   const ltAj=LOTES[CUR];
   const bp=document.getElementById("btn-padrao"), bs=document.getElementById("btn-salvar-aj"),
@@ -1621,16 +1646,21 @@ function renderDesenhos(){
     resumo.classList.toggle("hidden", !(ecoTot>0.005));
     resumo.classList.add("perde");
     if(ecoTot>0.005) resumo.innerHTML=
-      `O algoritmo faria este lote com <b>${fmt(atual-ecoTot)} m</b> de esteira; do jeito que está, são `
+      `O algoritmo faria ${DES_UNID==null?"este lote":"esta unidade"} com <b>${fmt(atual-ecoTot)} m</b> de esteira; do jeito que está, são `
       +`<b class="mais">${fmt(atual)} m</b> — <b class="mais">▲ +${fmt(ecoTot)} m</b>.`
       +`<button class="btn2 no-print" id="btn-melhor-giro">Aplicar a melhor forma em tudo</button>`;
   }
-  const ref=refEscala(arr);
+  const ref=refEscala(arrTodos);                   // escala igual com ou sem filtro de unidade
   const aberto=!!box.offsetParent;                 // com a aba fechada não adianta avisar: guarda para depois
-  const fus=aberto? fusaoDetectada(arr) : null;
+  const fus=aberto? fusaoDetectada(arrTodos) : null;
   box.innerHTML = arr.length? arr.map((a,i)=>desenhoCardHtml(a,"screen",i,ref)).join("")
-    : `<div class="des-nada">Nenhuma peça com medida completa neste lote — sem desenho.</div>`;
-  if(aberto){ marcaGrupos(arr); if(fus) avisaFusao(box,fus); }
+    : `<div class="des-nada">${arrTodos.length? "Nenhum desenho "+nomeUnid(DES_UNID)+" neste lote."
+        : "Nenhuma peça com medida completa neste lote — sem desenho."}</div>`;
+  if(aberto){
+    marcaGrupos(arrTodos);
+    const vis=fus? arr.indexOf(arrTodos[fus.i]) : -1;   // o card que fundiu pode estar fora do filtro
+    if(vis>=0) avisaFusao(box,{i:vis,de:fus.de});
+  }
   const btn=document.getElementById("btn-melhor-giro");
   if(btn) btn.addEventListener("click",()=>{
     const y=window.scrollY;
