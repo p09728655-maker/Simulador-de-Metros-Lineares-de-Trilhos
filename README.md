@@ -26,6 +26,17 @@ na tela e o simulador monta tudo:
     limitado ainda pelo **apoio mínimo da peça** (padrão **67%** da largura dela sobre a tábua).
     Ex.: `615×420` virada numa tábua de 500 passa 115 mm → 57,5 mm de cada lado, apoia 91% → **ok**.
     Já uma ripa de 48 mm com 38 mm no ar é recusada — a fileira da ponta não teria apoio.
+- **Regra de ouro — o algoritmo sempre manda a melhor forma.** Não importa o que estiver travado
+  (tábua, giro, `I × J`, camadas, avanço): o simulador continua calculando **a melhor forma possível**
+  e mostra a comparação no card. Se a escolha atual **perde**, aparece em **vermelho**
+  (`▲ +2,4 m · melhor: 5×2 na 1200`) com o botão **“usar o melhor”**; se já está no ótimo,
+  aparece em **verde** (`✓ melhor forma`). No rodapé da seção, o resumo do lote traz o total
+  do algoritmo × o total travado e o botão **“Aplicar a melhor forma em tudo”**.
+  Assim dá para travar o que a fábrica faz hoje **sem perder de vista** o quanto isso custa.
+- **Salvar meus ajustes / voltar ao padrão** — três botões na seção de desenhos:
+  **↺ Padrão do algoritmo** (solta todas as travas do lote), **💾 Salvar meus ajustes (n)**
+  (grava as travas do lote, com o contador do que está travado) e **⤴ Restaurar ajustes salvos**
+  (volta ao que você gravou, com a data). Fica guardado junto com o lote no navegador.
 - **Ajustar pelo desenho** — cada card tem os controles do arranjo (unidade, tábua, giro, folga, peças por lastro `I × J` e camadas)
 - **Ajustar pelo desenho (detalhe)** — três seletores que valem para todas as peças daquele
   arranjo, todos mostrando **quanto cada opção rende por lastro**: a **tábua** (`1600×500 · 2/lastro`),

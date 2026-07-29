@@ -152,10 +152,14 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-eco-cmp{color:var(--txt3)}
 .des-eco{font-weight:600;color:var(--txt3)}
 .des-eco.ok{color:var(--ok)}
+.des-eco.perde{color:var(--red)}
+.des-giro .linkbtn{padding:2px 9px;font-size:10px}
 .des-resumo{font-family:var(--font-d);font-size:11px;color:var(--txt2);margin:0 0 12px;
   background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 14px;
   display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .des-resumo b{color:var(--ok)}
+.des-resumo.perde{border-color:rgba(244,67,54,.5)}
+.des-resumo.perde b.mais{color:var(--red)}
 .top-actions .linkbtn.destaque{border-color:rgba(255,92,31,.55);color:var(--acc)}
 .top-actions .linkbtn.destaque:hover{background:rgba(255,92,31,.08)}
 
@@ -361,6 +365,10 @@ footer{padding:16px 20px;text-align:center;color:var(--txt3);font-family:var(--f
         A faixa cinza de cada ponta é a <b>folga de segurança</b> (⚙ Cadastros) e a faixa listrada no fim é a
         <b>sobra de tábua</b> que não dá pra aproveitar.</div>
       <div class="top-actions no-print">
+        <button class="linkbtn" id="btn-padrao">↺ Padrão do algoritmo</button>
+        <button class="linkbtn" id="btn-salvar-aj">💾 Salvar meus ajustes</button>
+        <button class="linkbtn hidden" id="btn-restaurar-aj">⤴ Restaurar ajustes salvos</button>
+        <span style="flex:1"></span>
         <button class="linkbtn" id="btn-des-pdf">🖨️ Desenhos deste lote</button>
         <span id="btn-des-unid"></span>
         <button class="linkbtn" id="btn-des-pdf-todos">🖨️ Desenhos de todos os lotes</button>
@@ -1356,17 +1364,25 @@ function arranjosDoLote(key){
   // a que deixa a peça sem apoio na tábua fica de fora (não é opção de economia)
   const arr=[...map.values()];
   for(const a of arr){
-    a.oNormal=metrosNaOrientacao(lt,a.idxs,"normal");
-    a.oVirada=metrosNaOrientacao(lt,a.idxs,"virada");
-    const cand=[["normal",a.oNormal],["virada",a.oVirada]].filter(([,o])=>o!=null);
-    if(cand.length){
-      cand.sort((x,y)=>x[1]-y[1]);
-      a.melhorGiro=cand[0][0]; a.oMelhor=cand[0][1];
-      a.economia=a.O-a.oMelhor;
-    } else { a.melhorGiro=null; a.oMelhor=a.O; a.economia=0; }
+    // melhor forma possível para as peças deste arranjo (o algoritmo mandando)
+    let oMelhor=0, mc=null;
+    for(const i of a.idxs){ const m=melhorPossivel(lt.rows[i]); oMelhor+=m.O; if(!mc) mc=m; }
+    a.oMelhor=oMelhor; a.melhor=mc;
+    a.economia=a.O-oMelhor;                       // quanto a escolha atual custa a mais
+    a.travado=a.idxs.some(i=>temTrava(lt.rows[i]));
   }
   // ordem estável (a mesma da tabela) — girar uma peça não embaralha os desenhos
   return arr.sort((a,b)=>a.idxs[0]-b.idxs[0]);
+}
+// REGRA DE OURO: o algoritmo sempre calcula a melhor forma possível, ignorando as travas
+// do operador (tábua, giro, folga, I×J, camadas). O que ele escolheu fica ao lado, para comparar.
+function melhorPossivel(row){
+  return calcRow({...row, tabuaComp:null, tabuaLarg:null, giro:null, I:null, J:null,
+                  camadas:null, avanco:null});
+}
+function temTrava(row){
+  return row.tabuaComp!=null || (row.giro&&row.giro!=="auto") || row.I!=null || row.J!=null ||
+         row.camadas!=null || row.avanco!=null;
 }
 // metros de esteira das peças `idxs` numa orientação; null se a orientação não é viável
 function metrosNaOrientacao(lt, idxs, giro){
@@ -1389,8 +1405,12 @@ function desenhoCardHtml(a, tema, ai, refMM){
   if(!svg) return "";
   const outros=a.cods.length>1?` <span style="opacity:.6">+${a.cods.length-1}</span>`:"";
   // controles (só na tela) — a economia aparece apenas quando há ganho de verdade
+  const m=a.melhor;
   const eco = a.economia>0.005
-    ? `<span class="des-eco ok">${a.melhorGiro==="virada"?"↻":"▭"} −${fmt(a.economia)} m</span>` : "";
+    ? `<span class="des-eco perde" title="quanto esta escolha gasta a mais que a melhor forma">▲ +${fmt(a.economia)} m`
+      + ` <span style="font-weight:400">· melhor: ${m?Math.floor(m.I)+"×"+Math.floor(m.J)+" na "+m.tComp:"—"}</span></span>`
+      + `<button class="linkbtn" data-melhor-arr="${ai}" title="Aplica a melhor forma calculada">usar o melhor</button>`
+    : `<span class="des-eco ok">✓ melhor forma</span>`;
   const giro = tema==="print" ? "" :
     `<div class="des-giro no-print">
       <select class="cell-sel" data-unid-arr="${ai}" title="Unidade de corte — vale para as ${a.cods.length} peça(s) deste arranjo">${unidadeOptions(a.unid)}</select>
@@ -1423,6 +1443,36 @@ function renderDesLoteSel(){
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
 }
+/* ===== ajustes manuais do lote: salvar, restaurar e voltar ao padrão do algoritmo ===== */
+const CAMPOS_AJUSTE=["tabuaComp","tabuaLarg","giro","I","J","camadas","avanco"];
+function ajustesDoLote(key){
+  const lt=LOTES[key]; if(!lt) return [];
+  return lt.rows.map((r,i)=>{ const o={i};
+    for(const c of CAMPOS_AJUSTE){
+      if(r[c]==null) continue;
+      if(c==="giro" && r[c]==="auto") continue;    // "auto" não é ajuste, é o padrão
+      o[c]=r[c];
+    }
+    return Object.keys(o).length>1? o : null; }).filter(Boolean);
+}
+function salvarAjustes(){
+  const lt=LOTES[CUR]; if(!lt) return;
+  lt.ajustes=ajustesDoLote(CUR); lt.ajustesEm=new Date().toLocaleString("pt-BR");
+  persistLotes(); renderDesenhos();
+}
+function restaurarAjustes(){
+  const lt=LOTES[CUR]; if(!lt||!lt.ajustes) return;
+  for(const r of lt.rows) for(const c of CAMPOS_AJUSTE) r[c]=null;
+  for(const a of lt.ajustes){ const r=lt.rows[a.i]; if(!r) continue;
+    for(const c of CAMPOS_AJUSTE) if(a[c]!=null) r[c]=a[c]; }
+  atualizaAposEdicao(window.scrollY);
+}
+function voltarAoPadrao(){
+  const lt=LOTES[CUR]; if(!lt) return;
+  for(const r of lt.rows){ r.tabuaComp=null; r.tabuaLarg=null; r.giro="auto";
+    r.I=null; r.J=null; r.camadas=null; r.avanco=null; }
+  atualizaAposEdicao(window.scrollY);
+}
 // re-render fora do evento (senão o blur do input tenta escrever num nó já removido)
 function atualizaAposEdicao(y){
   persistLotes();
@@ -1442,6 +1492,19 @@ function renderDesenhos(){
   const arr=CUR?arranjosDoLote(CUR):[];
   const tag=document.getElementById("des-tag");
   if(tag) tag.textContent = lt? (lt.lote+" · "+arr.length+" arranjo(s)") : "";
+  // salvar / restaurar / voltar ao padrão
+  const ltAj=LOTES[CUR];
+  const bp=document.getElementById("btn-padrao"), bs=document.getElementById("btn-salvar-aj"),
+        br=document.getElementById("btn-restaurar-aj");
+  if(bp&&!bp.dataset.lig){ bp.dataset.lig=1; bp.addEventListener("click",()=>{
+    if(confirm("Voltar todas as peças deste lote para a forma que o algoritmo calcula?\n(suas travas de tábua, giro, folga, lastro e camadas são apagadas)")) voltarAoPadrao(); }); }
+  if(bs&&!bs.dataset.lig){ bs.dataset.lig=1; bs.addEventListener("click",()=>{
+    salvarAjustes(); alert("Ajustes salvos. Dá para voltar ao padrão do algoritmo e restaurá-los depois."); }); }
+  if(br&&!br.dataset.lig){ br.dataset.lig=1; br.addEventListener("click",restaurarAjustes); }
+  const temAj=!!(ltAj&&ltAj.ajustes&&ltAj.ajustes.length);
+  if(br) br.classList.toggle("hidden", !temAj);
+  if(br&&temAj) br.title="Ajustes salvos em "+(ltAj.ajustesEm||"—")+" · "+ltAj.ajustes.length+" peça(s)";
+  if(bs) bs.textContent = ajustesDoLote(CUR).length? "💾 Salvar meus ajustes ("+ajustesDoLote(CUR).length+")" : "💾 Salvar meus ajustes";
   // um botão de impressão por unidade que tenha desenho neste lote
   const bu=document.getElementById("btn-des-unid");
   if(bu){
@@ -1462,10 +1525,11 @@ function renderDesenhos(){
   const atual=arr.reduce((s,a)=>s+a.O,0);
   if(resumo){
     resumo.classList.toggle("hidden", !(ecoTot>0.005));
+    resumo.classList.add("perde");
     if(ecoTot>0.005) resumo.innerHTML=
-      `Girando as peças marcadas, este lote economiza <b>${fmt(ecoTot)} m</b> de esteira `
-      +`(${fmt(atual)} m → ${fmt(atual-ecoTot)} m).`
-      +`<button class="btn2 no-print" id="btn-melhor-giro">Aplicar o melhor giro</button>`;
+      `O algoritmo faria este lote com <b>${fmt(atual-ecoTot)} m</b> de esteira; do jeito que está, são `
+      +`<b class="mais">${fmt(atual)} m</b> — <b class="mais">▲ +${fmt(ecoTot)} m</b>.`
+      +`<button class="btn2 no-print" id="btn-melhor-giro">Aplicar a melhor forma em tudo</button>`;
   }
   const ref=refEscala(arr);
   box.innerHTML = arr.length? arr.map((a,i)=>desenhoCardHtml(a,"screen",i,ref)).join("")
@@ -1474,9 +1538,10 @@ function renderDesenhos(){
   if(btn) btn.addEventListener("click",()=>{
     const y=window.scrollY;
     for(const a of arr){
-      if(!(a.economia>0.005) || !a.melhorGiro) continue;   // só giro viável (peça apoiada)
+      if(!(a.economia>0.005)) continue;
       for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-        row.giro=a.melhorGiro; row.I=null; row.J=null; }
+        row.tabuaComp=null; row.tabuaLarg=null; row.giro="auto"; row.I=null; row.J=null;
+        row.camadas=null; row.avanco=null; }
     }
     atualizaAposEdicao(y);
   });
@@ -1493,6 +1558,15 @@ function renderDesenhos(){
     const y=window.scrollY, [tc,tl]=e.target.value.split("|").map(Number);
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
       row.tabuaComp=tc; row.tabuaLarg=tl; row.I=null; row.J=null; }
+    atualizaAposEdicao(y);
+  }));
+  // volta o arranjo para a melhor forma: limpa todas as travas
+  box.querySelectorAll("button[data-melhor-arr]").forEach(b=>b.addEventListener("click",e=>{
+    const a=arr[+e.currentTarget.dataset.melhorArr]; if(!a) return;
+    const y=window.scrollY;
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+      row.tabuaComp=null; row.tabuaLarg=null; row.giro="auto"; row.I=null; row.J=null;
+      row.camadas=null; row.avanco=null; }
     atualizaAposEdicao(y);
   }));
   // peças por lastro (I × J) pelo desenho: vazio = automático
