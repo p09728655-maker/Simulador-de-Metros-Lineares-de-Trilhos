@@ -37,6 +37,11 @@ na tela e o simulador monta tudo:
   **↺ Padrão do algoritmo** (solta todas as travas do lote), **💾 Salvar meus ajustes (n)**
   (grava as travas do lote, com o contador do que está travado) e **⤴ Restaurar ajustes salvos**
   (volta ao que você gravou, com a data). Fica guardado junto com o lote no navegador.
+- **Cards que se juntam** — a tela mostra *1 exemplo de cada arranjo*. Quando um ajuste deixa duas
+  peças com o **mesmo arranjo** (mesma tábua, medida, giro, folga, `I × J`, camadas e unidade), os
+  dois cards **viram um só** (o contador `+N` sobe) e os cards seguintes andam uma casa no grid.
+  Para você não se perder, o card que absorveu **pisca em destaque**, a tela **rola até ele** e sai a
+  nota *"↩ juntou com 442.003.001 — mesmo arranjo"*, que some sozinha depois de alguns segundos.
 - **Ajustar pelo desenho** — cada card tem os controles do arranjo (unidade, tábua, giro, folga, peças por lastro `I × J` e camadas)
 - **Ajustar pelo desenho (detalhe)** — três seletores que valem para todas as peças daquele
   arranjo, todos mostrando **quanto cada opção rende por lastro**: a **tábua** (`1600×500 · 2/lastro`),

@@ -153,6 +153,12 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-eco{font-weight:600;color:var(--txt3)}
 .des-eco.ok{color:var(--ok)}
 .des-eco.perde{color:var(--red)}
+/* quando um ajuste deixa dois arranjos iguais os cards viram um só — destaca quem absorveu */
+.des-card.fundiu{border-color:var(--acc);box-shadow:0 0 0 2px rgba(255,92,31,.35);animation:fundiu 1.1s ease-in-out 3}
+@keyframes fundiu{0%,100%{background:var(--surface)}50%{background:rgba(255,92,31,.13)}}
+.des-fusao{font-family:var(--font-d);font-size:10.5px;font-weight:700;color:var(--acc);
+  margin:0 0 6px;display:flex;align-items:center;gap:8px}
+.des-fusao button{margin-left:auto}
 .des-giro .linkbtn{padding:2px 9px;font-size:10px}
 .des-resumo{font-family:var(--font-d);font-size:11px;color:var(--txt2);margin:0 0 12px;
   background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:10px 14px;
@@ -1481,6 +1487,39 @@ function atualizaAposEdicao(y){
     if(y!=null) window.scrollTo(0,y);
   },0);
 }
+/* ===== fusão de cards =====
+   A tela mostra "1 exemplo de cada arranjo". Quando um ajuste deixa duas peças com o MESMO
+   arranjo (tábua, medida, giro, folga, I×J, camadas e unidade), os dois cards viram um só e
+   todos os cards seguintes andam uma casa — parece que a peça "pulou de quadrante".
+   Guardamos de onde cada peça veio para avisar, destacar o card que absorveu e rolar até ele. */
+let GRUPOS_ANT=null;                       // {key, m:Map(idx da peça → {g:idxs[0] do card, cod})}
+function fusaoDetectada(arr){
+  if(!GRUPOS_ANT||GRUPOS_ANT.key!==CUR) return null;
+  const ant=GRUPOS_ANT.m;
+  for(let i=0;i<arr.length;i++){
+    const host=ant.get(arr[i].idxs[0]); if(!host) continue;
+    const de=[...new Set(arr[i].idxs.map(x=>ant.get(x)).filter(g=>g&&g.g!==host.g).map(g=>g.cod))];
+    if(de.length) return {i,de};
+  }
+  return null;
+}
+function marcaGrupos(arr){
+  const m=new Map();
+  for(const a of arr) for(const x of a.idxs) m.set(x,{g:a.idxs[0],cod:a.cods[0]});
+  GRUPOS_ANT={key:CUR,m};
+}
+function avisaFusao(box,fus){
+  const card=box.children[fus.i]; if(!card) return;
+  const n=document.createElement("div");
+  n.className="des-fusao no-print";
+  n.textContent="↩ juntou com "+fus.de.join(", ")+" — mesmo arranjo (nada mudou de lugar: dois cards viraram um)";
+  const tit=card.querySelector(".des-tit");
+  if(tit) tit.insertAdjacentElement("afterend",n); else card.insertBefore(n,card.firstChild);
+  card.classList.add("fundiu");
+  setTimeout(()=>{ card.classList.remove("fundiu"); n.remove(); },8000);
+  setTimeout(()=>{ const r=card.getBoundingClientRect();      // rola só se o card ficou fora da tela
+    if(r.top<70||r.bottom>window.innerHeight) card.scrollIntoView({block:"center",behavior:"smooth"}); },0);
+}
 function renderDesenhos(){
   // estado vazio x com lote
   const temLote=!!LOTES[CUR];
@@ -1532,8 +1571,11 @@ function renderDesenhos(){
       +`<button class="btn2 no-print" id="btn-melhor-giro">Aplicar a melhor forma em tudo</button>`;
   }
   const ref=refEscala(arr);
+  const aberto=!!box.offsetParent;                 // com a aba fechada não adianta avisar: guarda para depois
+  const fus=aberto? fusaoDetectada(arr) : null;
   box.innerHTML = arr.length? arr.map((a,i)=>desenhoCardHtml(a,"screen",i,ref)).join("")
     : `<div class="des-nada">Nenhuma peça com medida completa neste lote — sem desenho.</div>`;
+  if(aberto){ marcaGrupos(arr); if(fus) avisaFusao(box,fus); }
   const btn=document.getElementById("btn-melhor-giro");
   if(btn) btn.addEventListener("click",()=>{
     const y=window.scrollY;
