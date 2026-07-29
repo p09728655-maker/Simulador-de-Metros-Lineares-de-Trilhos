@@ -17,7 +17,9 @@ na tela e o simulador monta tudo:
   981 linhas). A **medida entra na chave** junto com o código: 18 raízes do histórico têm mais de
   uma medida (ex.: `792.005` vem `390×50` e `390×105`) e essas continuam separadas. A tabela mostra
   a pílula **“3 cores”** (passe o mouse para ver os códigos) e os relatórios saem com a contagem.
-  Como a pilha deixa de ser quebrada por cor, o consumo cai (histórico: 122 → 98 m por lote).
+  Somar é o retrato certo do trilho porque **corte e furação rodam tudo junto** — a cor só toma
+  forma na **coladeira**, que é outra etapa e não passa pelo trilho. Como a pilha deixa de ser
+  quebrada por cor, o consumo cai de verdade (histórico: 122 → 98 m por lote).
 - **Cadastro de Tábuas (pranchas)** — os tamanhos padrão que você corta (já vem com
   1200×500, 1360×500, 1600×500, 1850×500). O simulador escolhe sozinho a tábua que **gasta menos
   esteira**: testa todas as cadastradas, nas duas orientações da peça, e fica com a de menor

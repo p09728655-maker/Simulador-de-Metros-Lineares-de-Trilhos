@@ -603,7 +603,9 @@ const RE_DIM  = /(\d+)\s*[Xx]\s*(\d+)\s*[Xx]\s*(\d+)/;
 /* ===== a peça são os 6 primeiros dígitos do código; os 3 últimos são a cor =====
    No corte a cor não importa: 385.011.001 (BRANCO) e 385.011.009 (ROSA) são a MESMA peça.
    As duas entram como UMA linha, com as quantidades somadas — menos linha na tela e menos
-   pilha quebrada. A medida entra na chave porque 18 raízes do histórico têm mais de uma
+   pilha quebrada. Pode somar porque CORTE e FURAÇÃO rodam tudo junto: a cor só toma forma
+   na coladeira, que é outra etapa e não passa pelo trilho.
+   A medida entra na chave porque 18 raízes do histórico têm mais de uma
    medida (ex.: 792.005 vem 390×50 e 390×105); nessas, cada medida fica na sua linha. */
 function raizCod(c){ const s=String(c||""); return /^\d{3}\.\d{3}\.\d{3}$/.test(s)? s.slice(0,7) : s; }
 function chavePeca(r){
