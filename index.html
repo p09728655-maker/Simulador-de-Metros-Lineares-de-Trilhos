@@ -81,6 +81,7 @@ td.calc{font-family:var(--font-d);color:var(--txt2)}
 td.zero{color:var(--txt3)}
 .trtot td{background:var(--elevated);font-weight:700;font-family:var(--font-d);border-top:1px solid var(--border)}
 .desc-cod{color:var(--acc);font-size:11px;margin-right:4px}
+.desc-cor{color:var(--txt3);font-size:10px;border:.5px solid var(--border);border-radius:20px;padding:0 6px;cursor:help}
 .desc-txt{font-size:12px}
 .cell-in{background:var(--bg);border:.5px solid var(--border);color:var(--txt);font-family:var(--font-d);
   font-size:12px;padding:4px 6px;border-radius:5px;width:64px;text-align:right}
@@ -138,6 +139,8 @@ select.cell-sel:focus{outline:none;border-color:var(--acc)}
 .des-card{background:var(--surface);border:.5px solid var(--border);border-radius:8px;padding:12px 14px}
 .des-card .des-tit{font-family:var(--font-d);font-size:12px;color:var(--txt);margin-bottom:2px}
 .des-card .des-cod{font-family:var(--font-m,monospace);font-size:10px;color:var(--acc)}
+.des-cores{color:var(--txt3);font-size:10px;cursor:help}
+.print-report .des-cores{color:#666;font-size:9px}
 .des-unid{float:right;font-family:var(--font-d);font-size:9px;font-weight:600;letter-spacing:1px;
   text-transform:uppercase;color:var(--txt2);border:.5px solid var(--border);border-radius:20px;padding:2px 9px}
 .print-report .des-unid{float:right;font-size:8px;color:#555;border:1px solid #ccc;border-radius:20px;padding:1px 7px}
@@ -597,6 +600,55 @@ const RE_LOTE = /LT\s*(\d+)\s*\/\s*(\d+)/i;
 const RE_ITEM = /(\d[\d.]*),\d{3}\s+UN\s*(\d{3}\.\d{3}\.\d{3})\s+(.+?)\s+(\d{5,7})\b/;
 const RE_DIM  = /(\d+)\s*[Xx]\s*(\d+)\s*[Xx]\s*(\d+)/;
 
+/* ===== a peça são os 6 primeiros dígitos do código; os 3 últimos são a cor =====
+   No corte a cor não importa: 385.011.001 (BRANCO) e 385.011.009 (ROSA) são a MESMA peça.
+   As duas entram como UMA linha, com as quantidades somadas — menos linha na tela e menos
+   pilha quebrada. A medida entra na chave porque 18 raízes do histórico têm mais de uma
+   medida (ex.: 792.005 vem 390×50 e 390×105); nessas, cada medida fica na sua linha. */
+function raizCod(c){ const s=String(c||""); return /^\d{3}\.\d{3}\.\d{3}$/.test(s)? s.slice(0,7) : s; }
+function chavePeca(r){
+  if(!(r.comp&&r.larg&&r.alt)) return "s/medida|"+r.cod;      // sem medida ninguém junta
+  return raizCod(r.cod)+"|"+r.comp+"x"+r.larg+"x"+r.alt+"|"+(r.material||"");
+}
+// descrição sem a cor: o pedaço que as descrições do grupo têm em comum
+function descComum(ds){
+  if(!ds.length) return "";
+  const p=ds[0].split(/\s+/); let n=p.length;
+  for(const d of ds.slice(1)){ const q=d.split(/\s+/); let i=0;
+    while(i<n && i<q.length && p[i].toUpperCase()===q[i].toUpperCase()) i++; n=i; }
+  return (n? p.slice(0,n).join(" ") : ds[0]).replace(/[\s·,-]+$/,"");
+}
+function juntaCores(rows){
+  const map=new Map(), out=[];
+  for(const r of rows){
+    const k=chavePeca(r), h=map.get(k);
+    if(h){
+      h.qty+=r.qty;
+      for(const c of (r.cods||[r.cod])) if(h.cods.indexOf(c)<0) h.cods.push(c);
+      for(const o of (r.ofs||[])) if(h.ofs.indexOf(o)<0) h.ofs.push(o);
+      h._descs.push(r.desc);
+      for(const c of CAMPOS_AJUSTE) if(h[c]==null && r[c]!=null) h[c]=r[c];   // trava do operador
+      if(h.unidade==null && r.unidade!=null) h.unidade=r.unidade;
+    }else{
+      const n={...r, cod:raizCod(r.cod), cods:(r.cods||[r.cod]).slice(),
+               ofs:(r.ofs||[]).slice(), _descs:[r.desc]};
+      map.set(k,n); out.push(n);
+    }
+  }
+  for(const r of out){ r.desc=descComum(r._descs); delete r._descs; }
+  return out;
+}
+// lotes já importados antes desta regra passam a valer o mesmo (a função é idempotente)
+function migraCores(){
+  for(const k of Object.keys(LOTES)){
+    const lt=LOTES[k]; if(!lt||!lt.rows) continue;
+    const n=juntaCores(lt.rows);
+    if(n.length===lt.rows.length && lt.rows.every(r=>r.cods)) continue;
+    lt.rows=n;
+    if(lt.ajustes) lt.ajustes=ajustesDoLote(k);        // os índices mudaram junto com as linhas
+  }
+  persistLotes();
+}
 async function parsePdf(arrayBuffer){
   const doc = await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
   let curLote=null; const items=[];
@@ -631,10 +683,11 @@ async function parsePdf(arrayBuffer){
   }
   let excluidas=0;
   const lotes=Object.keys(porLote).map(lote=>{
-    const todas=Object.values(porLote[lote].agg).map(a=>({
+    // junta as cores da mesma peça (mesma raiz + mesma medida) somando as quantidades
+    const todas=juntaCores(Object.values(porLote[lote].agg).map(a=>({
       cod:a.cod, desc:a.desc, comp:a.comp, larg:a.larg, alt:a.alt, material:a.material, qty:a.qty, ofs:a.ofs,
       tabuaComp:null, tabuaLarg:null, I:null, J:null
-    }));
+    })));
     // peças sem medida (ex.: "CANTO CURVO") não entram na simulação
     const rows=todas.filter(r=>r.comp&&r.larg&&r.alt);
     excluidas += (todas.length-rows.length);
@@ -1072,7 +1125,7 @@ function renderSim(){
     const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
     const dimOk = r.comp&&r.larg&&r.alt;
     h+=`<tr data-i='${idx}'>
-      <td class='l'><button class='iconbtn del-row' data-del-row='${idx}' title='Excluir esta peça da simulação'>🗑</button> <span class='mono desc-cod'>${esc(r.cod)}</span><span class='desc-txt'>${esc(r.desc)}</span>${r.ofs&&r.ofs.length>1?` <span style='color:var(--txt3);font-size:10px'>(${r.ofs.length} OFs)</span>`:""}${!dimOk?` <span class='badge b-warn' style='padding:1px 6px'>sem medida</span>`:""}</td>
+      <td class='l'><button class='iconbtn del-row' data-del-row='${idx}' title='Excluir esta peça da simulação'>🗑</button> <span class='mono desc-cod'>${esc(r.cod)}</span><span class='desc-txt'>${esc(r.desc)}</span>${r.cods&&r.cods.length>1?` <span class='desc-cor' title='${esc(r.cods.join("  ·  "))}'>${r.cods.length} cores</span>`:""}${r.ofs&&r.ofs.length>1?` <span style='color:var(--txt3);font-size:10px'>(${r.ofs.length} OFs)</span>`:""}${!dimOk?` <span class='badge b-warn' style='padding:1px 6px'>sem medida</span>`:""}</td>
       <td class='num'>${fmtInt(r.qty)}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.comp??"—"}</td>
       <td class='num ${dimOk?"":"zero"}'>${r.larg??"—"}</td>
@@ -1434,7 +1487,7 @@ function desenhoCardHtml(a, tema, ai, refMM){
       ${eco}
     </div>`;
   return `<div class="${tema==="print"?"des-box":"des-card"}" style="border-left:4px solid ${corTabua(c.tComp,c.tLarg)}">
-    <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${outros}
+    <div class="des-tit"><span class="des-cod">${esc(a.cods[0])}</span> · ${esc(r.desc)}${r.cods&&r.cods.length>1?` <span class="des-cores" title="${esc(r.cods.join("  ·  "))}">· ${r.cods.length} cores</span>`:""}${outros}
       <span class="des-unid">${esc(a.unidNome)}</span></div>
     ${giro}
     ${svg}
@@ -1920,7 +1973,7 @@ function exportXlsx(){
     for(const r of lt.rows){
       const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
       const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"";
-      aoa.push([r.cod,r.desc,r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.virada?"VIRADA":"EM PÉ",Math.round(c.excesso||0),uNome,c.I,c.J,c.K,camadasDe(r),c.M,c.N,Math.round(c.O*100)/100]);
+      aoa.push([r.cods&&r.cods.length>1? r.cods.join(" "):r.cod, r.desc+(r.cods&&r.cods.length>1?" ("+r.cods.length+" cores)":""),r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.virada?"VIRADA":"EM PÉ",Math.round(c.excesso||0),uNome,c.I,c.J,c.K,camadasDe(r),c.M,c.N,Math.round(c.O*100)/100]);
     }
     const disp=totalDisponivel();
     const totRow=["","TOTAL",sQ]; for(let z=0;z<14;z++) totRow.push(""); totRow.push(_r2(sN), Math.round(sO*100)/100);
@@ -2164,7 +2217,7 @@ function loteReportHtml(key, titulo){
     const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
     const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"—";
     const semMedida=!(r.comp&&r.larg&&r.alt);
-    pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
+    pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${r.cods&&r.cods.length>1?` <span style="color:#666">(${r.cods.length} cores)</span>`:""}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
       +`<td>${fmtInt(r.qty)}</td><td>${r.comp??"—"}</td><td>${r.larg??"—"}</td><td>${r.alt??"—"}</td>`
       +`<td class='l'>${corChip(c.tComp,c.tLarg)}${c.tComp}×${c.tLarg} <span style="color:#666">${esc(nomeCorTabua(c.tComp,c.tLarg))}</span></td><td class='l'>${c.virada?"virada ↻":"em pé"}${c.excesso>0.5?` <span style="color:#e65100">+${Math.round(c.excesso)}</span>`:""}</td><td class='l'>${esc(uNome)}</td>`
       +`<td>${fmt(c.I)}</td><td>${fmt(c.J)}</td><td>${fmt(c.K)}</td>`
@@ -2347,6 +2400,7 @@ function setView(v){
   if(v==="cons") renderConsView();
   if(v==="comp"){ renderCompLoteSel(); renderComparativo(); }
 }
+migraCores();     // lotes importados antes da regra "a cor não muda a peça"
 setView("sim");
 document.getElementById("nav-sim").addEventListener("click",()=>setView("sim"));
 document.getElementById("nav-des").addEventListener("click",()=>setView("des"));

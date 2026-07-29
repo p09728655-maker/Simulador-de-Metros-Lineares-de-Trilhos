@@ -10,6 +10,14 @@ na tela e o simulador monta tudo:
 - **Leitura do PDF** — lê cada peça (código, descrição, OF) e **extrai as medidas**
   `COMP × LARG × ALT` embutidas na descrição (ex.: `RACK YAN TAMPO 900X400X15 …` → 900 × 400 × 15 mm).
   As quantidades das várias OFs de um mesmo código são **somadas**.
+- **A cor não muda a peça** — no código `385.011.001`, os **6 primeiros dígitos são a peça**
+  (`385.011`) e os **3 últimos são a cor** (`.001` BRANCO, `.009` ROSA, `.116` CINAMOMO). No corte
+  a cor não importa, então as cores da mesma peça entram como **uma linha só, com as quantidades
+  somadas** — a tela e a lista de corte encolhem pela metade (nos 29 lotes do histórico: 2.033 →
+  981 linhas). A **medida entra na chave** junto com o código: 18 raízes do histórico têm mais de
+  uma medida (ex.: `792.005` vem `390×50` e `390×105`) e essas continuam separadas. A tabela mostra
+  a pílula **“3 cores”** (passe o mouse para ver os códigos) e os relatórios saem com a contagem.
+  Como a pilha deixa de ser quebrada por cor, o consumo cai (histórico: 122 → 98 m por lote).
 - **Cadastro de Tábuas (pranchas)** — os tamanhos padrão que você corta (já vem com
   1200×500, 1360×500, 1600×500, 1850×500). O simulador escolhe sozinho a tábua que **gasta menos
   esteira**: testa todas as cadastradas, nas duas orientações da peça, e fica com a de menor
