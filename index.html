@@ -640,7 +640,7 @@ function sugTabua(row){
   for(const t of ord){
     const or=orientacaoAuto(row,t.comp,t.larg);
     if(!or) continue;
-    const M=row.alt>0? camadasFor(row.alt)*or.K : 0;
+    const M=row.alt>0? camadasDe(row)*or.K : 0;
     const N=M>0? Math.ceil((row.qty||0)/M) : 0;
     const O=(t.comp/1000)*N;
     if(!best || O<best.O-1e-9 || (Math.abs(O-best.O)<1e-9 && t.comp<best.t.comp)) best={t,O};
@@ -714,6 +714,11 @@ function garantirAlturas(){
 function camadasFor(esp){
   if(!esp) return 0;
   return Math.round((alturaParaEsp(esp)/esp)/10)*10;
+}
+// camadas desta peça: o operador pode travar (ex.: 1 lastro só). null = automático pela altura
+function camadasDe(row){
+  const v=row&&row.camadas!=null? +row.camadas : null;
+  return (v!=null&&v>0)? v : camadasFor(row?row.alt:0);
 }
 /* --------- encaixe na tábua: testa a peça em pé e VIRADA ---------
    A peça pode passar um pouco da largura da tábua (o pedaço que sobra para fora
@@ -796,7 +801,7 @@ function calcRow(row){
   const I = row.I!=null ? row.I : (or?or.I:1);
   const J = row.J!=null ? row.J : (or?or.J:1);
   const K = I*J;
-  const M = row.alt>0 ? camadasFor(row.alt) * K : 0;   // peças/pilha = camadas (arredondadas) × peças/lastro
+  const M = row.alt>0 ? camadasDe(row) * K : 0;   // peças/pilha = camadas × peças/lastro
   const N = M>0 ? Math.ceil(row.qty/M) : 0;
   const O = (tComp/1000)*N;
   const sug=Math.ceil(((pcComp||row.comp||0)+2*folgaEfDe(row))/5)*5;   // comprimento mínimo necessário
@@ -829,7 +834,7 @@ function calcComTabua(row, tComp, tLarg){
   const or=orientacaoDe(row,tComp,tLarg);
   const I = or?or.I:1, J = or?or.J:1;
   const K = I*J;
-  const M = row.alt>0 ? camadasFor(row.alt) * K : 0;
+  const M = row.alt>0 ? camadasDe(row) * K : 0;
   const N = M>0 ? Math.ceil(row.qty/M) : 0;
   const O = (tComp/1000)*N;
   return {tComp,tLarg,I,J,K,M,N,O};
@@ -1047,7 +1052,7 @@ function renderSim(){
   let h="<thead><tr>"
     +"<th class='l'>Peça (código · descrição)</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>"
     +"<th>Mín. tábua</th><th class='l'>Tábua</th><th class='l'>Giro</th><th class='l'>Unidade</th><th>Qtde comp<br>lastro (I)</th><th>Qtde larg<br>lastro (J)</th><th>Total<br>(K)</th>"
-    +"<th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead><tbody>";
+    +"<th>Camadas</th><th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead><tbody>";
   let sQ=0,sN=0,sO=0;
   lt.rows.forEach((r,idx)=>{
     const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
@@ -1065,11 +1070,14 @@ function renderSim(){
       <td><input class='cell-in' type='number' min='0' step='0.5' data-i-in='${idx}' value='${c.I}'></td>
       <td><input class='cell-in' type='number' min='0' step='0.5' data-j-in='${idx}' value='${c.J}'></td>
       <td class='calc'>${fmt(c.K)}</td>
+      <td><input class='cell-in' style='width:56px' type='number' min='0' step='1' data-cam-in='${idx}'
+        value='${r.camadas!=null?r.camadas:""}' placeholder='${camadasFor(r.alt)||"auto"}'
+        title='camadas da pilha. Vazio = automático pela altura (⚙ Cadastros). Use 1 para lastro único.'></td>
       <td class='calc'>${fmtInt(c.M)}</td>
       <td class='calc'>${fmtInt(c.N)}</td>
       <td class='num'>${fmt(c.O)}</td></tr>`;
   });
-  h+=`<tr class='trtot'><td class='l'>Total</td><td>${fmtInt(sQ)}</td><td colspan='11'></td>`
+  h+=`<tr class='trtot'><td class='l'>Total</td><td>${fmtInt(sQ)}</td><td colspan='12'></td>`
     +`<td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>`;
   h+="</tbody>"; t.innerHTML=h;
 
@@ -1096,6 +1104,11 @@ function renderSim(){
   }));
   t.querySelectorAll("input[data-i-in]").forEach(inp=>inp.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+  }));
+  t.querySelectorAll("input[data-cam-in]").forEach(inp=>inp.addEventListener("change",e=>{
+    const i=+e.target.dataset.camIn, v=e.target.value.trim();
+    LOTES[CUR].rows[i].camadas = v===""? null : Math.max(1,+v||1);
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
   }));
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
     LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
@@ -1335,7 +1348,7 @@ function arranjosDoLote(key){
     if(!(r.comp&&r.larg&&r.alt)) return;
     const c=calcRow(r);
     const ui=resolveUnidadeIdx(r);
-    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}|f${c.folgaEf}|u${ui}`;
+    const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}|f${c.folgaEf}|u${ui}|c${camadasDe(r)}`;
     const hit=map.get(k);
     if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); hit.idxs.push(idx); }
     else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx],unid:ui,unidNome:((PARAMS.unidades||[])[ui]||{}).nome||"—"});
@@ -1365,7 +1378,7 @@ function metrosNaOrientacao(lt, idxs, giro){
     const f=encaixesPossiveis(row,c.tComp,c.tLarg);        // sem forçar: só o que apoia na tábua
     const or=giro==="virada"?f.virada:f.normal;
     if(!or) return null;
-    const M=row.alt>0? camadasFor(row.alt)*or.K : 0;
+    const M=row.alt>0? camadasDe(row)*or.K : 0;
     const N=M>0? Math.ceil(row.qty/M) : 0;
     tot += (c.tComp/1000)*N;
   }
@@ -1385,6 +1398,10 @@ function desenhoCardHtml(a, tema, ai, refMM){
       <select class="cell-sel" data-tabua-arr="${ai}" title="Tábua usada — vale para as ${a.cods.length} peça(s) deste arranjo">${tabuaOptionsCalc(r,c)}</select>
       <select class="cell-sel" data-giro-arr="${ai}" title="Como a peça entra no lastro — vale para as ${a.cods.length} peça(s) deste arranjo">${giroOptions(r,c)}</select>
       <select class="cell-sel" data-folga-arr="${ai}" title="Folga em cada ponta do comprimento: cheia (${folgaBase()} mm) ou reduzida pelo avanço de ${avancoComp()} mm">${folgaOptions(r,c)}</select>
+      <label style="display:flex;align-items:center;gap:5px">camadas
+        <input class="cell-in" style="width:58px" type="number" min="1" step="1" data-cam-arr="${ai}"
+          value="${r.camadas!=null?r.camadas:""}" placeholder="${camadasFor(r.alt)||"auto"}"
+          title="Vazio = automático pela altura da pilha. Use 1 para lastro único."></label>
       ${eco}
     </div>`;
   return `<div class="${tema==="print"?"des-box":"des-card"}" style="border-left:4px solid ${corTabua(c.tComp,c.tLarg)}">
@@ -1393,6 +1410,7 @@ function desenhoCardHtml(a, tema, ai, refMM){
     ${giro}
     ${svg}
     <div class="des-sub"><b>${Math.floor(c.I)} × ${Math.floor(c.J)} = ${Math.floor(c.I)*Math.floor(c.J)}</b> por lastro ·
+      <b>${fmtInt(camadasDe(r))}</b> camada(s)${r.camadas!=null?' <b style="color:#e65100">travado</b>':""} ·
       <b>${fmtInt(c.M)}</b> pç/pilha · ${fmtInt(a.qty)} peças = <b>${fmtInt(a.N)}</b> pilha(s) ·
       <b>${fmt(a.O)} m</b> de esteira</div>
   </div>`;
@@ -1466,6 +1484,15 @@ function renderDesenhos(){
     const y=window.scrollY, [tc,tl]=e.target.value.split("|").map(Number);
     for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
       row.tabuaComp=tc; row.tabuaLarg=tl; row.I=null; row.J=null; }
+    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    window.scrollTo(0,y);
+  }));
+  // camadas pelo desenho: vazio = automático, 1 = lastro único
+  box.querySelectorAll("input[data-cam-arr]").forEach(s=>s.addEventListener("change",e=>{
+    const a=arr[+e.target.dataset.camArr]; if(!a) return;
+    const y=window.scrollY, v=e.target.value.trim();
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
+      row.camadas = v===""? null : Math.max(1,+v||1); }
     persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
     window.scrollTo(0,y);
   }));
@@ -1756,15 +1783,15 @@ function exportXlsx(){
     aoa.push(["SIMULAÇÃO CONSUMO EM METROS TRILHOS CORTE", "", "", "", "LOTE", lt.lote]);
     aoa.push(["Altura pilha:", PARAMS.alturaPilha, "", "Trilho disponível (m):", totalDisponivel()]);
     aoa.push([]);
-    aoa.push(["CÓDIGO","DESCRIÇÃO","QTDE","COMP","LARG","ALT","SUG.TÁBUA","TÁBUA COMP","TÁBUA LARG","GIRO","PASSA LARG (MM)","UNIDADE","QTDE COMP (LASTRO)","QTDE LARG (LASTRO)","TOTAL (K)","PÇ/PILHA (M)","PILHAS (N)","METROS (O)"]);
+    aoa.push(["CÓDIGO","DESCRIÇÃO","QTDE","COMP","LARG","ALT","SUG.TÁBUA","TÁBUA COMP","TÁBUA LARG","GIRO","PASSA LARG (MM)","UNIDADE","QTDE COMP (LASTRO)","QTDE LARG (LASTRO)","TOTAL (K)","CAMADAS","PÇ/PILHA (M)","PILHAS (N)","METROS (O)"]);
     let sQ=0,sN=0,sO=0;
     for(const r of lt.rows){
       const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
       const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"";
-      aoa.push([r.cod,r.desc,r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.virada?"VIRADA":"EM PÉ",Math.round(c.excesso||0),uNome,c.I,c.J,c.K,c.M,c.N,Math.round(c.O*100)/100]);
+      aoa.push([r.cod,r.desc,r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.virada?"VIRADA":"EM PÉ",Math.round(c.excesso||0),uNome,c.I,c.J,c.K,camadasDe(r),c.M,c.N,Math.round(c.O*100)/100]);
     }
     const disp=totalDisponivel();
-    const totRow=["","TOTAL",sQ]; for(let z=0;z<13;z++) totRow.push(""); totRow.push(_r2(sN), Math.round(sO*100)/100);
+    const totRow=["","TOTAL",sQ]; for(let z=0;z<14;z++) totRow.push(""); totRow.push(_r2(sN), Math.round(sO*100)/100);
     aoa.push(totRow);
     aoa.push(["","OCUPAÇÃO",(disp>0?Math.round(sO/disp*10000)/100:0)+"%"]);
     aoa.push([]);
@@ -2008,7 +2035,8 @@ function loteReportHtml(key, titulo){
     pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
       +`<td>${fmtInt(r.qty)}</td><td>${r.comp??"—"}</td><td>${r.larg??"—"}</td><td>${r.alt??"—"}</td>`
       +`<td class='l'>${corChip(c.tComp,c.tLarg)}${c.tComp}×${c.tLarg} <span style="color:#666">${esc(nomeCorTabua(c.tComp,c.tLarg))}</span></td><td class='l'>${c.virada?"virada ↻":"em pé"}${c.excesso>0.5?` <span style="color:#e65100">+${Math.round(c.excesso)}</span>`:""}</td><td class='l'>${esc(uNome)}</td>`
-      +`<td>${fmt(c.I)}</td><td>${fmt(c.J)}</td><td>${fmt(c.K)}</td><td>${fmtInt(c.M)}</td><td>${fmtInt(c.N)}</td><td>${fmt(c.O)}</td></tr>`;
+      +`<td>${fmt(c.I)}</td><td>${fmt(c.J)}</td><td>${fmt(c.K)}</td>`
+      +`<td>${fmtInt(camadasDe(r))}${r.camadas!=null?"*":""}</td><td>${fmtInt(c.M)}</td><td>${fmtInt(c.N)}</td><td>${fmt(c.O)}</td></tr>`;
   }
   return `
     <div class="rep-head">
@@ -2035,9 +2063,9 @@ function loteReportHtml(key, titulo){
     <div class="rep-ctitle">Simulação do lote (${lt.rows.length} itens)</div>
     <table class="rep-tbl rep-tbl-sm">
       <thead><tr><th class='l'>Código</th><th class='l'>Descrição</th><th>Qtde</th><th>Comp</th><th>Larg</th><th>Alt</th>
-        <th>Tábua</th><th class='l'>Giro</th><th class='l'>Unidade</th><th>I</th><th>J</th><th>K</th><th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead>
-      <tbody>${pr||"<tr><td class='l' colspan='15'>Sem peças neste lote.</td></tr>"}
-        <tr class="rep-tot"><td class='l' colspan='2'>Total</td><td>${fmtInt(sQ)}</td><td colspan='10'></td><td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>
+        <th>Tábua</th><th class='l'>Giro</th><th class='l'>Unidade</th><th>I</th><th>J</th><th>K</th><th>Cam.</th><th>Pç/pilha (M)</th><th>Pilhas (N)</th><th>Metros (O)</th></tr></thead>
+      <tbody>${pr||"<tr><td class='l' colspan='16'>Sem peças neste lote.</td></tr>"}
+        <tr class="rep-tot"><td class='l' colspan='2'>Total</td><td>${fmtInt(sQ)}</td><td colspan='11'></td><td>${fmtInt(sN)}</td><td>${fmt(sO)}</td></tr>
       </tbody>
     </table>
     <div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · processado localmente no navegador</div>`;
