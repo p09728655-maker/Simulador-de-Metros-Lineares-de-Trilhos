@@ -552,6 +552,12 @@ const LS_TABUAS = "simTrilho:tabuas";
 const LS_PARAMS = "simTrilho:params";
 const LS_LOTES  = "simTrilho:lotes";
 
+/* travas do operador: o que ele pode fixar numa peça, sobrepondo a escolha do algoritmo.
+   Solta (tudo null / giro "auto"), a peça volta para a melhor forma calculada. */
+const CAMPOS_AJUSTE=["tabuaComp","tabuaLarg","giro","I","J","camadas","avanco"];
+function limpaTravas(row){ for(const c of CAMPOS_AJUSTE) row[c]=null; row.giro="auto"; return row; }
+function semTravas(row){ return limpaTravas({...row}); }
+
 const LARG_TABUA_PADRAO = 500;   // largura das tábuas (pranchas) usadas no corte
 const DEFAULT_TABUAS = [
   {id:"t1", comp:1200, larg:LARG_TABUA_PADRAO, material:"MDP", esp:null},
@@ -586,6 +592,9 @@ const fmt = n => (Math.round((n||0)*100)/100).toLocaleString("pt-BR");
 const fmtInt = n => Math.round(n||0).toLocaleString("pt-BR");
 function uid(){ return "x"+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36); }
 function totalDisponivel(){ return (PARAMS.unidades||[]).reduce((s,u)=>s+(+u.metros||0),0); }
+// nome da unidade de corte; `fb` é o texto quando ela não existe mais no cadastro
+function nomeUnid(u,fb){ const n=((PARAMS.unidades||[])[u]||{}).nome;
+  return n || (fb!==undefined? fb : "Unidade "+((u|0)+1)); }
 // ordena "LT 142/26" pelo ano depois nº
 function loteNum(k){ const m=String(k).match(/(\d+)\/(\d+)/); return m? (+m[2])*100000 + (+m[1]) : 9e9; }
 
@@ -601,7 +610,6 @@ function itemsToLines(items){
   }
   return lines.map(l=> l.items.sort((a,b)=>a.x-b.x).map(i=>i.s).join(" ").replace(/\s+/g," ").trim());
 }
-const RE_LOTE = /LT\s*(\d+)\s*\/\s*(\d+)/i;
 const RE_ITEM = /(\d[\d.]*),\d{3}\s+UN\s*(\d{3}\.\d{3}\.\d{3})\s+(.+?)\s+(\d{5,7})\b/;
 const RE_DIM  = /(\d+)\s*[Xx]\s*(\d+)\s*[Xx]\s*(\d+)/;
 
@@ -1022,11 +1030,13 @@ function renderAlturas(){
     save(LS_PARAMS,PARAMS); renderAlturas(); renderAll();
   }));
 }
-function renderLoteSel(){
-  const sel=document.getElementById("lote-sel");
+// os três seletores de lote (Simulador, Desenhos, Comparar) mostram a mesma lista
+function preencheLoteSel(id){
+  const sel=document.getElementById(id); if(!sel) return;
   const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
   sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
 }
+function renderLoteSel(){ preencheLoteSel("lote-sel"); }
 /* barra fixa: ocupação sempre à vista, inclusive na hora de mexer nos desenhos.
    Mostra também quanto a última alteração mudou nos metros. */
 let HUD_ANT=null;
@@ -1159,12 +1169,12 @@ function renderSim(){
     const i=+e.target.dataset.tabua; const [c,l]=e.target.value.split("|").map(Number);
     LOTES[CUR].rows[i].tabuaComp=c; LOTES[CUR].rows[i].tabuaLarg=l;
     LOTES[CUR].rows[i].I=null; LOTES[CUR].rows[i].J=null;   // nova tábua → nova sugestão de encaixe
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    persistLotes(); atualizaTudo();
   }));
   t.querySelectorAll("button[data-del-row]").forEach(b=>b.addEventListener("click",e=>{
     const i=+e.currentTarget.dataset.delRow; const r=LOTES[CUR].rows[i];
     if(!confirm("Excluir a peça "+(r?r.cod+" — "+r.desc:"")+" da simulação?\n(some deste lote; reimportar o PDF traz de volta)")) return;
-    LOTES[CUR].rows.splice(i,1); persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    LOTES[CUR].rows.splice(i,1); persistLotes(); atualizaTudo();
   }));
   t.querySelectorAll("select[data-giro]").forEach(s=>s.addEventListener("change",e=>{
     const i=+e.target.dataset.giro, y=window.scrollY;
@@ -1173,18 +1183,18 @@ function renderSim(){
     atualizaAposEdicao(y);
   }));
   t.querySelectorAll("select[data-unid-in]").forEach(s=>s.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.unidIn].unidade=+e.target.value; persistLotes(); atualizaTudo();
   }));
   t.querySelectorAll("input[data-i-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.iIn].I=+e.target.value||0; persistLotes(); atualizaTudo();
   }));
   t.querySelectorAll("input[data-cam-in]").forEach(inp=>inp.addEventListener("change",e=>{
     const i=+e.target.dataset.camIn, v=e.target.value.trim();
     LOTES[CUR].rows[i].camadas = v===""? null : Math.max(1,+v||1);
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    persistLotes(); atualizaTudo();
   }));
   t.querySelectorAll("input[data-j-in]").forEach(inp=>inp.addEventListener("change",e=>{
-    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+    LOTES[CUR].rows[+e.target.dataset.jIn].J=+e.target.value||0; persistLotes(); atualizaTudo();
   }));
   renderTabuasLote(); // resumo das tábuas do lote
   renderDesenhos();   // o desenho do lastro acompanha a tabela
@@ -1424,7 +1434,7 @@ function arranjosDoLote(key){
     const k=`${c.tComp}x${c.tLarg}|${r.comp}x${r.larg}x${r.alt}|${Math.floor(c.I)}x${Math.floor(c.J)}|${c.virada?"V":"N"}|f${c.folgaEf}|u${ui}|c${camadasDe(r)}`;
     const hit=map.get(k);
     if(hit){ hit.qty+=r.qty; hit.N+=c.N; hit.O+=c.O; hit.cods.push(r.cod); hit.idxs.push(idx); }
-    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx],unid:ui,unidNome:((PARAMS.unidades||[])[ui]||{}).nome||"—"});
+    else map.set(k,{r,c,qty:r.qty,N:c.N,O:c.O,cods:[r.cod],idxs:[idx],unid:ui,unidNome:nomeUnid(ui,"—")});
   });
   // metros que o arranjo consome em cada orientação — SÓ orientação viável entra na conta;
   // a que deixa a peça sem apoio na tábua fica de fora (não é opção de economia)
@@ -1442,28 +1452,9 @@ function arranjosDoLote(key){
 }
 // REGRA DE OURO: o algoritmo sempre calcula a melhor forma possível, ignorando as travas
 // do operador (tábua, giro, folga, I×J, camadas). O que ele escolheu fica ao lado, para comparar.
-function melhorPossivel(row){
-  return calcRow({...row, tabuaComp:null, tabuaLarg:null, giro:null, I:null, J:null,
-                  camadas:null, avanco:null});
-}
+function melhorPossivel(row){ return calcRow(semTravas(row)); }
 function temTrava(row){
-  return row.tabuaComp!=null || (row.giro&&row.giro!=="auto") || row.I!=null || row.J!=null ||
-         row.camadas!=null || row.avanco!=null;
-}
-// metros de esteira das peças `idxs` numa orientação; null se a orientação não é viável
-function metrosNaOrientacao(lt, idxs, giro){
-  let tot=0;
-  for(const i of idxs){
-    const row=lt.rows[i]; if(!row) continue;
-    const c=calcRow(row);
-    const f=encaixesPossiveis(row,c.tComp,c.tLarg);        // sem forçar: só o que apoia na tábua
-    const or=giro==="virada"?f.virada:f.normal;
-    if(!or) return null;
-    const M=row.alt>0? camadasDe(row)*or.K : 0;
-    const N=M>0? Math.ceil(row.qty/M) : 0;
-    tot += (c.tComp/1000)*N;
-  }
-  return tot;
+  return CAMPOS_AJUSTE.some(c=> c==="giro" ? (row.giro&&row.giro!=="auto") : row[c]!=null);
 }
 function desenhoCardHtml(a, tema, ai, refMM){
   const {r,c}=a;
@@ -1506,7 +1497,6 @@ function desenhoCardHtml(a, tema, ai, refMM){
 }
 /* ===== filtro de unidade na tela dos desenhos (null = todas) ===== */
 let DES_UNID=null;
-function nomeUnid(u){ return ((PARAMS.unidades||[])[u]||{}).nome||("Unidade "+(u+1)); }
 function nomeFiltroUnid(){ return DES_UNID==null? "" : " · "+nomeUnid(DES_UNID); }
 function renderDesUnidSel(arrTodos){
   const sel=document.getElementById("des-unid-sel"); if(!sel) return;
@@ -1520,13 +1510,8 @@ function renderDesUnidSel(arrTodos){
     renderTabuasLote(); renderDesenhos(); window.scrollTo(0,0);
   }); }
 }
-function renderDesLoteSel(){
-  const sel=document.getElementById("des-lote-sel"); if(!sel) return;
-  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
-  sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
-}
+function renderDesLoteSel(){ preencheLoteSel("des-lote-sel"); }
 /* ===== ajustes manuais do lote: salvar, restaurar e voltar ao padrão do algoritmo ===== */
-const CAMPOS_AJUSTE=["tabuaComp","tabuaLarg","giro","I","J","camadas","avanco"];
 function ajustesDoLote(key){
   const lt=LOTES[key]; if(!lt) return [];
   return lt.rows.map((r,i)=>{ const o={i};
@@ -1544,24 +1529,20 @@ function salvarAjustes(){
 }
 function restaurarAjustes(){
   const lt=LOTES[CUR]; if(!lt||!lt.ajustes) return;
-  for(const r of lt.rows) for(const c of CAMPOS_AJUSTE) r[c]=null;
+  for(const r of lt.rows) limpaTravas(r);
   for(const a of lt.ajustes){ const r=lt.rows[a.i]; if(!r) continue;
     for(const c of CAMPOS_AJUSTE) if(a[c]!=null) r[c]=a[c]; }
   atualizaAposEdicao(window.scrollY);
 }
 function voltarAoPadrao(){
   const lt=LOTES[CUR]; if(!lt) return;
-  for(const r of lt.rows){ r.tabuaComp=null; r.tabuaLarg=null; r.giro="auto";
-    r.I=null; r.J=null; r.camadas=null; r.avanco=null; }
+  for(const r of lt.rows) limpaTravas(r);
   atualizaAposEdicao(window.scrollY);
 }
 // re-render fora do evento (senão o blur do input tenta escrever num nó já removido)
 function atualizaAposEdicao(y){
   persistLotes();
-  setTimeout(()=>{
-    renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    if(y!=null) window.scrollTo(0,y);
-  },0);
+  setTimeout(()=>{ atualizaTudo(); if(y!=null) window.scrollTo(0,y); },0);
 }
 /* ===== fusão de cards =====
    A tela mostra "1 exemplo de cada arranjo". Quando um ajuste deixa duas peças com o MESMO
@@ -1628,13 +1609,13 @@ function renderDesenhos(){
   const bu=document.getElementById("btn-des-unid");
   if(bu){
     const us=[...new Set(arr.map(a=>a.unid))].sort((x,y)=>x-y);
-    bu.innerHTML=us.map(u=>`<button class="linkbtn" data-des-unid="${u}">🖨️ ${esc(((PARAMS.unidades||[])[u]||{}).nome||"Unidade")}</button>`).join(" ");
+    bu.innerHTML=us.map(u=>`<button class="linkbtn" data-des-unid="${u}">🖨️ ${esc(nomeUnid(u,"Unidade"))}</button>`).join(" ");
     bu.querySelectorAll("button[data-des-unid]").forEach(b=>b.addEventListener("click",e=>{
       const u=+e.currentTarget.dataset.desUnid;
       const html=desenhoPageHtml(CUR,u);
       if(!html){ alert("Nenhum desenho desta unidade."); return; }
       document.getElementById("report-todos").innerHTML=html;
-      const nome=((PARAMS.unidades||[])[u]||{}).nome||"UNIDADE";
+      const nome=nomeUnid(u,"UNIDADE");
       imprimirComo("DESENHOS "+nomeLote(CUR)+" - "+nome.toUpperCase(), "printing-todos");
     }));
   }
@@ -1661,76 +1642,36 @@ function renderDesenhos(){
     const vis=fus? arr.indexOf(arrTodos[fus.i]) : -1;   // o card que fundiu pode estar fora do filtro
     if(vis>=0) avisaFusao(box,{i:vis,de:fus.de});
   }
+  // toda edição feita pelo card vale para as peças daquele arranjo e mantém a rolagem
+  const noArranjo=(a,fn)=>{
+    if(!a) return;
+    const y=window.scrollY;
+    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(row) fn(row); }
+    atualizaAposEdicao(y);
+  };
+  const liga=(sel,chave,fn)=>box.querySelectorAll(sel).forEach(el=>
+    el.addEventListener(el.tagName==="BUTTON"?"click":"change",
+      e=>noArranjo(arr[+e.currentTarget.dataset[chave]], row=>fn(row,e.currentTarget))));
+  const numOuAuto=v=>{ v=String(v).trim(); return v===""? null : Math.max(1,+v||1); };  // vazio = automático
+
+  liga("select[data-unid-arr]", "unidArr", (row,el)=>{ row.unidade=+el.value; });
+  liga("select[data-tabua-arr]","tabuaArr",(row,el)=>{ const [tc,tl]=el.value.split("|").map(Number);
+    row.tabuaComp=tc; row.tabuaLarg=tl; row.I=null; row.J=null; });
+  liga("select[data-giro-arr]", "giroArr", (row,el)=>{ row.giro=el.value; row.I=null; row.J=null; });
+  liga("select[data-folga-arr]","folgaArr",(row,el)=>{ row.avanco=+el.value; row.I=null; row.J=null; });
+  liga("input[data-i-arr]",     "iArr",    (row,el)=>{ row.I=numOuAuto(el.value); });
+  liga("input[data-j-arr]",     "jArr",    (row,el)=>{ row.J=numOuAuto(el.value); });
+  liga("input[data-cam-arr]",   "camArr",  (row,el)=>{ row.camadas=numOuAuto(el.value); });
+  liga("button[data-melhor-arr]","melhorArr", limpaTravas);   // "usar o melhor": solta as travas
+
+  // "aplicar a melhor forma em tudo": solta as travas de todo arranjo que esteja perdendo esteira
   const btn=document.getElementById("btn-melhor-giro");
   if(btn) btn.addEventListener("click",()=>{
     const y=window.scrollY;
-    for(const a of arr){
-      if(!(a.economia>0.005)) continue;
-      for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-        row.tabuaComp=null; row.tabuaLarg=null; row.giro="auto"; row.I=null; row.J=null;
-        row.camadas=null; row.avanco=null; }
-    }
+    for(const a of arr) if(a.economia>0.005)
+      for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(row) limpaTravas(row); }
     atualizaAposEdicao(y);
   });
-  // trocar a unidade de corte pelo desenho
-  box.querySelectorAll("select[data-unid-arr]").forEach(s=>s.addEventListener("change",e=>{
-    const a=arr[+e.target.dataset.unidArr]; if(!a) return;
-    const y=window.scrollY, u=+e.target.value;
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue; row.unidade=u; }
-    atualizaAposEdicao(y);
-  }));
-  // trocar a tábua pelo desenho: vale para todas as peças daquele arranjo
-  box.querySelectorAll("select[data-tabua-arr]").forEach(s=>s.addEventListener("change",e=>{
-    const a=arr[+e.target.dataset.tabuaArr]; if(!a) return;
-    const y=window.scrollY, [tc,tl]=e.target.value.split("|").map(Number);
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-      row.tabuaComp=tc; row.tabuaLarg=tl; row.I=null; row.J=null; }
-    atualizaAposEdicao(y);
-  }));
-  // volta o arranjo para a melhor forma: limpa todas as travas
-  box.querySelectorAll("button[data-melhor-arr]").forEach(b=>b.addEventListener("click",e=>{
-    const a=arr[+e.currentTarget.dataset.melhorArr]; if(!a) return;
-    const y=window.scrollY;
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-      row.tabuaComp=null; row.tabuaLarg=null; row.giro="auto"; row.I=null; row.J=null;
-      row.camadas=null; row.avanco=null; }
-    atualizaAposEdicao(y);
-  }));
-  // peças por lastro (I × J) pelo desenho: vazio = automático
-  const aplicaIJ=(campo)=>e=>{
-    const a=arr[+e.target.dataset[campo==="I"?"iArr":"jArr"]]; if(!a) return;
-    const y=window.scrollY, v=e.target.value.trim();
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-      row[campo] = v===""? null : Math.max(1,+v||1); }
-    atualizaAposEdicao(y);
-  };
-  box.querySelectorAll("input[data-i-arr]").forEach(s=>s.addEventListener("change",aplicaIJ("I")));
-  box.querySelectorAll("input[data-j-arr]").forEach(s=>s.addEventListener("change",aplicaIJ("J")));
-  // camadas pelo desenho: vazio = automático, 1 = lastro único
-  box.querySelectorAll("input[data-cam-arr]").forEach(s=>s.addEventListener("change",e=>{
-    const a=arr[+e.target.dataset.camArr]; if(!a) return;
-    const y=window.scrollY, v=e.target.value.trim();
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-      row.camadas = v===""? null : Math.max(1,+v||1); }
-    atualizaAposEdicao(y);
-  }));
-  // folga pelo desenho: o operador escolhe se a peça avança sobre a folga
-  box.querySelectorAll("select[data-folga-arr]").forEach(s=>s.addEventListener("change",e=>{
-    const a=arr[+e.target.dataset.folgaArr]; if(!a) return;
-    const y=window.scrollY, av=+e.target.value;
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-      row.avanco=av; row.I=null; row.J=null; }
-    atualizaAposEdicao(y);
-  }));
-  // girar pelo desenho: aplica o giro a todas as peças daquele arranjo
-  box.querySelectorAll("select[data-giro-arr]").forEach(s=>s.addEventListener("change",e=>{
-    const a=arr[+e.target.dataset.giroArr]; if(!a) return;
-    const y=window.scrollY;
-    for(const i of a.idxs){ const row=LOTES[CUR].rows[i]; if(!row) continue;
-      row.giro=e.target.value; row.I=null; row.J=null; }
-    persistLotes(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
-    window.scrollTo(0,y);   // mantém a tela no mesmo lugar
-  }));
 }
 // escala comum: a maior extensão em mm entre os arranjos da lista
 function refEscala(lista){
@@ -1759,25 +1700,17 @@ function tabuasTabelaHtml(key, unidIdx){
 function desenhoPageHtml(key, soUnid){
   const lt=LOTES[key]; const arr=arranjosDoLote(key);
   if(!lt||!arr.length) return "";
-  const now=new Date();
   // agrupa os arranjos por unidade, mantendo a ordem das unidades cadastradas
   const porUnid=new Map();
   for(const a of arr){ (porUnid.get(a.unid) || porUnid.set(a.unid,[]).get(a.unid)).push(a); }
   const ordem=[...porUnid.keys()].sort((x,y)=>x-y).filter(u=>soUnid==null||u===soUnid);
   const refLote=refEscala(arr);   // mesma escala em todas as páginas
-  const cabec=(sub)=>`
-    <div class="rep-head">
-      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
-      <div>
-        <div class="rep-title">Desenho do lastro <span>· Lote ${esc(lt.lote)}</span></div>
-        <div class="rep-meta">${esc(sub)} · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
-      </div>
-    </div>`;
+  const cabec=(sub)=>repHead("Desenho do lastro","Lote "+lt.lote,sub);
   const rodape=`<div class="rep-foot">Patrimar Móveis · Simulador de Metros Lineares de Trilhos · faixa pontilhada nas pontas = folga de segurança · faixa tracejada = sobra de tábua</div>`;
   let out="";
   for(const ui of ordem){
     const lista=porUnid.get(ui);
-    const nome=((PARAMS.unidades||[])[ui]||{}).nome||"Sem unidade";
+    const nome=nomeUnid(ui,"Sem unidade");
     const tab=lista.reduce((s,a)=>s+a.N,0), met=lista.reduce((s,a)=>s+a.O,0), pc=lista.reduce((s,a)=>s+a.qty,0);
     // folgas realmente usadas nesta unidade (com o avanço aplicado em cada arranjo)
     const folgas=[...new Set(lista.map(a=>a.c.folgaEf))].sort((x,y)=>y-x)
@@ -1799,11 +1732,7 @@ function desenhoPageHtml(key, soUnid){
   return out;
 }
 
-function renderCompLoteSel(){
-  const sel=document.getElementById("comp-lote-sel"); if(!sel) return;
-  const keys=Object.keys(LOTES).sort((a,b)=>loteNum(a)-loteNum(b));
-  sel.innerHTML=keys.map(k=>`<option value="${esc(k)}" ${k===CUR?"selected":""}>${esc(LOTES[k].lote)}</option>`).join("");
-}
+function renderCompLoteSel(){ preencheLoteSel("comp-lote-sel"); }
 // dados da comparação (atual x sugerido) para um conjunto de peças
 function compDataFor(rows){
   let oA=0,oB=0; const sizes={};
@@ -1955,7 +1884,10 @@ function renderGeralUnid(){
 }
 function renderConsView(){ renderConsKpis(); renderChartLote(); renderChartUnid(); renderGeral(); renderGeralUnid(); }
 
-function renderAll(){ renderKpis(); renderUnid(); renderCompLoteSel(); renderDesLoteSel(); renderComparativo(); renderSim(); renderConsView(); }
+// redesenha as telas que dependem das peças do lote (o desenho vem junto, dentro de renderSim)
+function atualizaTudo(){ renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral(); }
+// idem, quando a lista de lotes também mudou
+function renderAll(){ renderCompLoteSel(); renderDesLoteSel(); atualizaTudo(); renderConsView(); }
 function persistLotes(){ save(LS_LOTES, LOTES); }
 
 /* ================= fluxo de arquivo ================= */
@@ -2004,7 +1936,7 @@ function exportXlsx(){
     let sQ=0,sN=0,sO=0;
     for(const r of lt.rows){
       const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
-      const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"";
+      const uNome=nomeUnid(resolveUnidadeIdx(r),"");
       aoa.push([r.cods&&r.cods.length>1? r.cods.join(" "):r.cod, r.desc+(r.cods&&r.cods.length>1?" ("+r.cods.length+" cores)":""),r.qty,r.comp,r.larg,r.alt,c.sug,c.tComp,c.tLarg,c.virada?"VIRADA":"EM PÉ",Math.round(c.excesso||0),uNome,c.I,c.J,c.K,camadasDe(r),c.M,c.N,Math.round(c.O*100)/100]);
     }
     const disp=totalDisponivel();
@@ -2113,7 +2045,7 @@ document.getElementById("btn-aplicar-sug").addEventListener("click",()=>{
   }
   if(add) save(LS_TABUAS,TABUAS);
   persistLotes();
-  renderTabuas(); renderSim(); renderKpis(); renderUnid(); renderComparativo(); renderGeral();
+  renderTabuas(); atualizaTudo();
 });
 
 // cadastro de tábuas
@@ -2124,10 +2056,21 @@ document.getElementById("btn-add-tabua").addEventListener("click",()=>{
   const cor=(document.getElementById("t-cor")||{}).value || corPadraoTabua(TABUAS.length);
   TABUAS.push({id:uid(), comp, larg, material, esp, cor}); save(LS_TABUAS,TABUAS);
   document.getElementById("t-comp").value=""; document.getElementById("t-larg").value=""; document.getElementById("t-esp").value="";
-  renderTabuas(); renderSim(); renderKpis(); renderComparativo(); renderGeral();
+  renderTabuas(); atualizaTudo();
 });
 
 // export / pdf
+// cabeçalho das páginas dos relatórios em PDF (logo + título + linha de contexto)
+function repHead(titulo, span, meta){
+  return `
+    <div class="rep-head">
+      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
+      <div>
+        <div class="rep-title">${esc(titulo)} <span>· ${esc(span)}</span></div>
+        <div class="rep-meta">${esc(meta)} · Gerado em ${esc(new Date().toLocaleString("pt-BR"))}</div>
+      </div>
+    </div>`;
+}
 /* ================= relatório consolidado (todos os lotes) ================= */
 // barra horizontal para o relatório impresso (cores que imprimem via print-color-adjust)
 function repBarChart(items, ref){
@@ -2156,15 +2099,8 @@ function consolidadoHtml(){
       <td>${fmt(T.O)}</td><td>${fmt(disp)}</td><td>${fmt(pct*100)}%</td>
       <td class='l'><span class='rep-badge ${cls}'>${st}</span></td></tr>`;
   }
-  const now=new Date();
   return `
-    <div class="rep-head">
-      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
-      <div>
-        <div class="rep-title">Relatório Consolidado <span>· Simulador de Trilhos</span></div>
-        <div class="rep-meta">Metros lineares de corte · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
-      </div>
-    </div>
+    ${repHead("Relatório Consolidado","Simulador de Trilhos","Metros lineares de corte")}
     <div class="rep-kpis">
       <div><span>Lotes</span><b>${keys.length}</b></div>
       <div><span>Peças</span><b>${fmtInt(gQ)}</b></div>
@@ -2233,7 +2169,6 @@ function loteReportHtml(key, titulo){
   const pct=disp>0?T.O/disp:0;
   const clsR=p=>p>1?"r-red":(p>0.85?"r-warn":"r-ok");
   const stR=p=>p>1?"Acima da capacidade":(p>0.85?"No limite":"OK");
-  const now=new Date();
   // por unidade de corte
   let ur="";
   for(const u of unidadeTotals(key)){
@@ -2247,7 +2182,7 @@ function loteReportHtml(key, titulo){
   let pr="", sQ=0, sN=0, sO=0;
   for(const r of lt.rows){
     const c=calcRow(r); sQ+=r.qty; sN+=c.N; sO+=c.O;
-    const uNome=(PARAMS.unidades[resolveUnidadeIdx(r)]||{}).nome||"—";
+    const uNome=nomeUnid(resolveUnidadeIdx(r),"—");
     const semMedida=!(r.comp&&r.larg&&r.alt);
     pr+=`<tr><td class='l'>${esc(r.cod)}</td><td class='l'>${esc(r.desc)}${r.cods&&r.cods.length>1?` <span style="color:#666">(${r.cods.length} cores)</span>`:""}${semMedida?" <span class='rep-badge r-warn'>sem medida</span>":""}</td>`
       +`<td>${fmtInt(r.qty)}</td><td>${r.comp??"—"}</td><td>${r.larg??"—"}</td><td>${r.alt??"—"}</td>`
@@ -2256,13 +2191,7 @@ function loteReportHtml(key, titulo){
       +`<td>${fmtInt(camadasDe(r))}${r.camadas!=null?"*":""}</td><td>${fmtInt(c.M)}</td><td>${fmtInt(c.N)}</td><td>${fmt(c.O)}</td></tr>`;
   }
   return `
-    <div class="rep-head">
-      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
-      <div>
-        <div class="rep-title">${esc(titulo||("Lote "+lt.lote))} <span>· Simulador de Trilhos</span></div>
-        <div class="rep-meta">${esc(lt.lote)} · ${lt.rows.length} itens · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
-      </div>
-    </div>
+    ${repHead(titulo||("Lote "+lt.lote),"Simulador de Trilhos",lt.lote+" · "+lt.rows.length+" itens")}
     <div class="rep-kpis">
       <div><span>Peças no lote</span><b>${fmtInt(T.qty)}</b></div>
       <div><span>Itens (peças distintas)</span><b>${fmtInt(lt.rows.length)}</b></div>
@@ -2332,7 +2261,6 @@ function comparativoReportHtml(lt){
   const clsR=p=>p>1?"r-red":(p>0.85?"r-warn":"r-ok");
   const diffR=d=>d<-0.0001?"r-ok":(d>0.0001?"r-red":"r-warn");
   const sinal=v=>(v>0?"+":"")+fmt(v);
-  const now=new Date();
   // linhas por unidade
   const U=compByUnit(lt).filter(u=>u.oA>0||u.oB>0);
   let uA=0,uB=0,ur="";
@@ -2348,13 +2276,7 @@ function comparativoReportHtml(lt){
   for(const r of rows){ sT+=r.tipos; sQ+=r.qty; sN+=r.N; sO+=r.O;
     sr+=`<tr><td class='l'>${r.comp}×${r.larg}</td><td>${fmtInt(r.tipos)}</td><td>${fmtInt(r.qty)}</td><td>${fmtInt(r.N)}</td><td>${fmt(r.O)}</td></tr>`; }
   return `
-    <div class="rep-head">
-      <img src="patrimar-logo.png" class="rep-logo" onerror="this.style.display='none'">
-      <div>
-        <div class="rep-title">Comparação de Tábuas <span>· Simulador de Trilhos</span></div>
-        <div class="rep-meta">Lote ${esc(lt.lote)} · Atual x sugerido padronizado · Gerado em ${esc(now.toLocaleString("pt-BR"))}</div>
-      </div>
-    </div>
+    ${repHead("Comparação de Tábuas","Simulador de Trilhos","Lote "+lt.lote+" · Atual x sugerido padronizado")}
     <div class="rep-kpis">
       <div><span>Esteira atual</span><b>${fmt(oA)} m</b></div>
       <div><span>Esteira sugerida</span><b>${fmt(oB)} m</b></div>
